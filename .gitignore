@@ -1,1 +1,43 @@
+# Environment variables
+.env
+*.env
+!.env.example
 
+# Python
+.venv/
+*.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/PM2
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Logs
+logs/
+*.log
+
+# Misc
+.coverage
+.pytest_cache/
+.mypy_cache/
