@@ -8,20 +8,22 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from db import db_client
+
 
 # Load environment variables
-load_dotenv()
-
-# Bot setup
+# Bot setup with intents
+# If you get PrivilegedIntentsRequired errors, enable these in Discord Developer Portal:
+# https://discord.com/developers/applications/ → Your App → Bot → Privileged Gateway Intents
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True  # Needed for member verification
-intents.guilds = True
+intents.guilds = True  # Required for basic bot functionality
+intents.message_content = True  # Uncomment if you need to read message content
+intents.members = True  # Uncomment if you need member verification/join events
 
 bot = commands.Bot(
     command_prefix="!",  # Fallback prefix (mainly using slash commands)
     intents=intents,
-    description="BizBot - Internal Discord bot for BizTech event support"
+    description="BizBot - Internal Discord bot for BizTech event support",
 )
 
 
@@ -31,7 +33,7 @@ async def on_ready():
     if bot.user:
         print(f"✓ Bot logged in as {bot.user} (ID: {bot.user.id})")
     print(f"✓ Connected to {len(bot.guilds)} guild(s)")
-    
+
     # Sync slash commands with Discord
     try:
         synced = await bot.tree.sync()
@@ -66,7 +68,7 @@ async def load_cogs():
         # "bots.cogs.verify",
         # "bots.cogs.tickets",
     ]
-    
+
     for cog in cogs_to_load:
         try:
             await bot.load_extension(cog)
@@ -76,16 +78,17 @@ async def load_cogs():
 
 
 async def start_bot():
-    """Start the Discord bot."""
     token = os.getenv("DISCORD_TOKEN")
     if not token:
         raise ValueError("DISCORD_TOKEN not found in environment variables")
-    
-    # Load cogs before starting
+
     await load_cogs()
-    
-    # Start the bot
-    await bot.start(token)
+
+    try:
+        await bot.start(token)
+    except discord.errors.PrivilegedIntentsRequired as e:
+        print(e)
+        raise
 
 
 async def stop_bot():
