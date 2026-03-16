@@ -38,7 +38,7 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            cd /home/botuser/biztix-bot
+            cd /opt/bizbot
             git pull origin main
             uv sync --frozen
             pm2 restart biztix-bot
