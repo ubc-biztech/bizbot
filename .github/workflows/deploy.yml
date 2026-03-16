@@ -31,8 +31,12 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          debug: true
           script: |
             cd /opt/bizbot
             git pull origin main
             uv sync --frozen
-            pm2 restart biztix-bot
+            pm2 restart bizbot
