@@ -7,8 +7,6 @@ Initializes the discord.py bot with necessary intents and loads cogs.
 import os
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
-from db import db_client
 
 
 # Load environment variables

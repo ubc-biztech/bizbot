@@ -6,8 +6,9 @@ Provides HTTP endpoints for health checks and testing DynamoDB connectivity.
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from bots.dynamodb import db_client
+from bots.db import db
 from bots.client import bot
+from bots.constants import TICKETS_TABLE
 
 app = FastAPI(
     title="BizBot API",
@@ -48,32 +49,6 @@ async def health_check():
     )
 
 
-@app.get("/test-db")
-async def test_dynamodb():
-    """
-    Test DynamoDB connectivity.
-    
-    Scans the configured table and returns up to 5 items.
-    Modify this endpoint to test specific queries based on your schema.
-    """
-    try:
-        items = await db_client.scan_table(limit=5)
-        return {
-            "status": "success",
-            "table_name": db_client.table_name,
-            "item_count": len(items),
-            "items": items
-        }
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": "error",
-                "message": str(e)
-            }
-        )
-
-
 @app.get("/test-db/item/{item_id}")
 async def get_test_item(item_id: str):
     """
@@ -84,7 +59,7 @@ async def get_test_item(item_id: str):
     """
     try:
         # Modify this key structure to match your table's primary key
-        item = await db_client.get_item({"ticket_id": item_id})
+        item = await db.get_one(item_id, TICKETS_TABLE)
         
         if item:
             return {
