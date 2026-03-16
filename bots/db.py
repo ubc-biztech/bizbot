@@ -6,6 +6,9 @@ DynamoDB operations using boto3. IAM permissions are provided by the AWS
 Lightsail instance role - no credentials needed in code.
 """
 
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
 import os
 import time
 from typing import Optional, Dict, Any, List 

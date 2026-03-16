@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from bots.client import start_bot, stop_bot
 from api.routes import app
 
-
 async def run_fastapi():
     """Run FastAPI server using uvicorn."""
     config = uvicorn.Config(
