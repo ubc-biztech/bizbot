@@ -7,8 +7,7 @@ Provides testing commands including DynamoDB connectivity test.
 import discord
 from discord import app_commands
 from discord.ext import commands
-from bots.constants import TICKETS_TABLE
-from bots.db import db
+from bots.ticketHelpers.ticketCategoryView import TicketCategoryView
 
 
 class TicketCog(commands.Cog):
@@ -18,47 +17,30 @@ class TicketCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="ticket", description="Create a help ticket")
-    async def ping(self, interaction: discord.Interaction):
-        """Simple ping command to test if the bot is responding."""
-        latency = round(self.bot.latency * 1000)
-        await interaction.response.send_message(
-            f"🏓 Pong! Latency: {latency}ms", ephemeral=True
-        )
+    async def ticket(self, interaction: discord.Interaction):
+        """/ticket command to create a ticket"""
+        channel = interaction.channel
 
-    @app_commands.command(
-        name="get-item", description="Get a specific item from DynamoDB"
-    )
-    @app_commands.describe(ticket_id="The ticket ID to retrieve")
-    async def get_item(self, interaction: discord.Interaction, ticket_id: str):
-        """
-        Get a specific item from DynamoDB by ticket_id.
+        category: discord.CategoryChannel | None = None
+        if isinstance(channel, discord.TextChannel):
+            category = channel.category
+        elif isinstance(channel, discord.Thread) and isinstance(
+            channel.parent, discord.TextChannel
+        ):
+            category = channel.parent.category
 
-        Modify the key structure based on your table schema.
-        """
-        await interaction.response.defer(ephemeral=True)
-
-        try:
-            # Modify this key to match your table's primary key structure
-            item = await db.get_one_custom(
-                {
-                    "TableName": TICKETS_TABLE,
-                    "Key": {
-                        "ticketID": {"S": ticket_id},
-                        "eventID;year": {"S": "produhacks;2026"},
-                    },
-                }
+        if category is None:
+            await interaction.response.send_message(
+                "Please use `/ticket` inside an event category.",
+                ephemeral=True
             )
+            return
 
-            if item:
-                message = f"✓ **Item Found**\n```json\n{item}\n```"
-            else:
-                message = f"✗ **Item Not Found**\nNo item with ticket_id `{ticket_id}` exists."
-
-            await interaction.followup.send(message, ephemeral=True)
-
-        except Exception as e:
-            error_message = f"✗ **Query Failed**\nError: ```{str(e)}```"
-            await interaction.followup.send(error_message, ephemeral=True)
+        await interaction.response.send_message(
+            "Select the type of help you need:",
+            view=TicketCategoryView(),
+            ephemeral=True
+        )
 
 
 async def setup(bot: commands.Bot):
