@@ -7,11 +7,12 @@ Lightsail instance role - no credentials needed in code.
 """
 
 from dotenv import load_dotenv
+
 load_dotenv(override=True)
 
 import os
 import time
-from typing import Optional, Dict, Any, List 
+from typing import Optional, Dict, Any, List
 import boto3
 from botocore.exceptions import ClientError
 
@@ -337,41 +338,92 @@ class DynamoDBHelper:
             raise Exception(error_response)
 
     async def update_db(
-        self, item_id: str, obj: Dict[str, Any], table: str
+        self,
+        key: str | Dict[str, Any],
+        table: str,
+        obj: Optional[Dict[str, Any]] = None,
+        update_expression: Optional[str] = None,
+        expression_attribute_values: Optional[Dict[str, Any]] = None,
+        expression_attribute_names: Optional[Dict[str, str]] = None,
+        condition_expression: Optional[str] = None,
+        return_values: str = "UPDATED_NEW",
     ) -> Dict[str, Any]:
         """
         Update item in table.
 
-        Uses ConditionExpression to ensure item exists.
-        Automatically handles reserved words and adds updatedAt timestamp.
+        Two modes of operation:
+        1. Auto-generate (simple): Pass `obj` dict, UpdateExpression is auto-generated.
+           Automatically handles reserved words and adds updatedAt timestamp.
+        2. Manual (advanced): Pass custom `update_expression` with explicit values/names.
+           Use this for complex operations like conditional updates, ADD, REMOVE, etc.
 
         Args:
-            item_id: Primary key id
-            obj: Dictionary of attributes to update
+            key: Primary key - string for simple {"id": key} or dict for composite keys
             table: Table name (without environment suffix)
+            obj: Dictionary of attributes to update (auto-generates expression).
+                 Mutually exclusive with update_expression.
+            update_expression: Custom UpdateExpression string.
+                              Mutually exclusive with obj.
+            expression_attribute_values: Values for placeholders in expressions
+            expression_attribute_names: Names for attribute aliases (reserved words)
+            condition_expression: ConditionExpression for the update.
+                                  - Auto mode: defaults to checking key existence
+                                  - Manual mode: required (pass None explicitly to disable)
+            return_values: What to return (default: UPDATED_NEW)
 
         Returns:
             UpdateItem response
 
         Raises:
+            ValueError if both obj and update_expression are provided
             Exception with formatted error response if operation fails
         """
+        # Validate mutual exclusivity
+        if obj and update_expression:
+            raise ValueError("Cannot specify both 'obj' and 'update_expression'")
+        if not obj and not update_expression:
+            raise ValueError("Must specify either 'obj' or 'update_expression'")
+
+        # Convert string key to dict for backward compatibility
+        if isinstance(key, str):
+            key_dict = {"id": key}
+        else:
+            key_dict = key
+
         try:
-            update_expr = self.create_update_expression(obj)
             table_resource = self._get_table(table)
 
-            update_kwargs = {
-                "Key": {"id": item_id},
-                "UpdateExpression": update_expr["updateExpression"],
-                "ExpressionAttributeValues": update_expr["expressionAttributeValues"],
-                "ReturnValues": "UPDATED_NEW",
-                "ConditionExpression": "attribute_exists(id)",
+            if obj:
+                # Auto-generate mode
+                update_expr = self.create_update_expression(obj)
+                final_expression = update_expr["updateExpression"]
+                final_values = update_expr["expressionAttributeValues"]
+                final_names = update_expr.get("expressionAttributeNames")
+
+                # Default condition: check first key exists
+                if condition_expression is None:
+                    first_key = next(iter(key_dict.keys()))
+                    condition_expression = f"attribute_exists({first_key})"
+            else:
+                # Manual mode
+                final_expression = update_expression
+                final_values = expression_attribute_values or {}
+                final_names = expression_attribute_names
+
+            update_kwargs: Dict[str, Any] = {
+                "Key": key_dict,
+                "UpdateExpression": final_expression,
+                "ReturnValues": return_values,
             }
 
-            if update_expr["expressionAttributeNames"]:
-                update_kwargs["ExpressionAttributeNames"] = update_expr[
-                    "expressionAttributeNames"
-                ]
+            if final_values:
+                update_kwargs["ExpressionAttributeValues"] = final_values
+
+            if final_names:
+                update_kwargs["ExpressionAttributeNames"] = final_names
+
+            if condition_expression:
+                update_kwargs["ConditionExpression"] = condition_expression
 
             response = table_resource.update_item(**update_kwargs)
             return response

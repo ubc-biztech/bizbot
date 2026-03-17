@@ -15,21 +15,19 @@ from .ticketClaimHelpers import (
 
 # Hard-coded for now;
 MENTOR_ROLE_TO_ID_DICTIONARY = {
-    "frontend" : 1482999081302364161,
-    "backend" : 1482999306196750449,
-    "product" : 1482999350266298438,
-    "UX" : 1482998230013841521
+    "frontend": 1482999081302364161,
+    "backend": 1482999306196750449,
+    "product": 1482999350266298438,
+    "UX": 1482998230013841521,
 }
 
 EXEC_ROLE_IDS = [
-    1404646631688896604, #Biztech Server
-    1396397591465300098, #Biztech test Server
-    1423137037518770199
+    1404646631688896604,  # Biztech Server
+    1396397591465300098,  # Biztech test Server
+    1423137037518770199,
 ]
 
-MENTOR_ROLE_IDS = [
-    
-]
+MENTOR_ROLE_IDS = []
 
 CLAIM_ALLOWED_ROLE_IDS = list({*EXEC_ROLE_IDS, *MENTOR_ROLE_IDS})
 
@@ -53,7 +51,7 @@ class ClaimTicketView(discord.ui.View):
     async def claim_ticket(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        
+
         guild = interaction.guild
         if guild is None:
             await interaction.response.send_message(
@@ -61,7 +59,7 @@ class ClaimTicketView(discord.ui.View):
                 ephemeral=True,
             )
             return
-        
+
         if not isinstance(interaction.user, discord.Member):
             await interaction.response.send_message(
                 "Could not validate your server roles.",
@@ -78,30 +76,29 @@ class ClaimTicketView(discord.ui.View):
 
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-        table = db._get_table(TICKETS_TABLE)
         claimed_at = datetime.now(timezone.utc).isoformat()
 
-        
         try:
-            update_response = table.update_item(
-                Key={
+            update_response = await db.update_db(
+                key={
                     "ticketID": self.ticket_id,
                     "eventID;year": self.event_year_key,
                 },
-                UpdateExpression=(
+                table=TICKETS_TABLE,
+                update_expression=(
                     "SET #status = :claimed, "
                     "claimedBy = :claimedBy, "
                     "claimedAt = :claimedAt"
                 ),
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
+                expression_attribute_names={"#status": "status"},
+                expression_attribute_values={
                     ":open": "OPEN",
                     ":claimed": "CLAIMED",
                     ":claimedBy": str(interaction.user.id),
                     ":claimedAt": claimed_at,
                 },
-                ConditionExpression="#status = :open",
-                ReturnValues="ALL_NEW",
+                condition_expression="#status = :open",
+                return_values="ALL_NEW",
             )
         except ClientError as err:
             error_code = err.response.get("Error", {}).get("Code")
@@ -127,7 +124,10 @@ class ClaimTicketView(discord.ui.View):
 
         created_by_id = self._safe_int(ticket.get("createdBy"))
 
-        if (not isinstance(interaction.channel, discord.TextChannel) or interaction.message is None):
+        if (
+            not isinstance(interaction.channel, discord.TextChannel)
+            or interaction.message is None
+        ):
             await interaction.followup.send(
                 "Could not resolve the original ticket message.",
                 ephemeral=True,
@@ -145,7 +145,7 @@ class ClaimTicketView(discord.ui.View):
             )
         except discord.HTTPException:
             pass
-        
+
         # create private channel
         created_by_member = await resolve_member(guild, created_by_id)
 
@@ -168,15 +168,13 @@ class ClaimTicketView(discord.ui.View):
             return
 
         try:
-            table.update_item(
-                Key={
+            await db.update_db(
+                key={
                     "ticketID": self.ticket_id,
                     "eventID;year": self.event_year_key,
                 },
-                UpdateExpression="SET privateChannelId = :privateChannelId",
-                ExpressionAttributeValues={
-                    ":privateChannelId": str(private_ticket_channel.id),
-                },
+                table=TICKETS_TABLE,
+                obj={"privateChannelId": str(private_ticket_channel.id)},
             )
         except Exception:
             pass
@@ -203,7 +201,7 @@ class TicketCreateModal(discord.ui.Modal):
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
-        placeholder="Briefly explain your issue ..."
+        placeholder="Briefly explain your issue ...",
     )
 
     location = discord.ui.TextInput(
@@ -211,7 +209,7 @@ class TicketCreateModal(discord.ui.Modal):
         style=discord.TextStyle.short,
         max_length=100,
         required=True,
-        placeholder="Henry Angus 491 / etc."
+        placeholder="Henry Angus 491 / etc.",
     )
 
     def __init__(self, selected_help_category: str):
@@ -233,7 +231,7 @@ class TicketCreateModal(discord.ui.Modal):
         if category is None:
             await interaction.response.send_message(
                 "Please create tickets from a server text channel under an event category.",
-                ephemeral=True
+                ephemeral=True,
             )
             return
 
@@ -245,21 +243,26 @@ class TicketCreateModal(discord.ui.Modal):
         now = now_utc.isoformat()
         event_year_key = f"{event_name};{now_utc.year}"
 
-        tickets_channel = discord.utils.get(category.text_channels, name="incoming-tickets")
+        tickets_channel = discord.utils.get(
+            category.text_channels, name="incoming-tickets"
+        )
 
         if not isinstance(tickets_channel, discord.TextChannel):
             await interaction.response.send_message(
-                "Tickets channel is not configured correctly.",
-                ephemeral=True
+                "Tickets channel is not configured correctly.", ephemeral=True
             )
             return
-        
+
         # Queue message into mentor chat
         ticket_title = "Ticket #" + ticket_id[:8]
         embed = discord.Embed(title=ticket_title, color=discord.Color.red())
         embed.add_field(name="Created By", value=interaction.user.mention, inline=True)
-        embed.add_field(name="Help Category", value=self.selected_help_category, inline=True)
-        embed.add_field(name="Where are you located", value=self.location.value, inline=False)
+        embed.add_field(
+            name="Help Category", value=self.selected_help_category, inline=True
+        )
+        embed.add_field(
+            name="Where are you located", value=self.location.value, inline=False
+        )
         embed.add_field(name="Description", value=self.description.value, inline=False)
         embed.add_field(name="Status", value="OPEN", inline=False)
 
@@ -270,7 +273,7 @@ class TicketCreateModal(discord.ui.Modal):
             queue_message = await tickets_channel.send(
                 content=f"{mentor_ping} New ticket needs help.",
                 embed=embed,
-                view=claim_view
+                view=claim_view,
             )
         except discord.HTTPException:
             await interaction.response.send_message(
@@ -310,5 +313,5 @@ class TicketCreateModal(discord.ui.Modal):
 
         await interaction.response.send_message(
             f"Your ticket has been created. Ticket ID: `{ticket_id[:8]}`",
-            ephemeral=True
+            ephemeral=True,
         )
