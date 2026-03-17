@@ -1,7 +1,7 @@
 """
-Test cog for BizBot.
+Ticket cog for BizBot.
 
-Provides testing commands including DynamoDB connectivity test.
+Provides commands for ticket functionality
 """
 
 import discord

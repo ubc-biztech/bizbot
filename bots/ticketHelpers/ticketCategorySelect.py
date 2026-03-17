@@ -20,3 +20,8 @@ class TicketCategorySelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         selected_help_category = self.values[0]
         await interaction.response.send_modal(TicketCreateModal(selected_help_category))
+
+        try:
+            await interaction.delete_original_response()
+        except (discord.NotFound, discord.HTTPException):
+            pass

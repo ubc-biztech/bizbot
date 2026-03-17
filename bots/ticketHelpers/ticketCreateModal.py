@@ -77,7 +77,7 @@ class TicketCreateModal(discord.ui.Modal):
         ticket_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc)
         now = now_utc.isoformat()
-        event_year_key = f"{event_id};{now_utc.year}"
+        event_year_key = f"{event_name};{now_utc.year}"
 
         tickets_channel = discord.utils.get(category.text_channels, name="incoming-tickets")
 
@@ -89,16 +89,29 @@ class TicketCreateModal(discord.ui.Modal):
             return
         
         # Queue message into mentor chat
-        embed = discord.Embed(title="New Help Ticket")
-        embed.add_field(name="Ticket ID", value=ticket_id[:8], inline=False)
-        embed.add_field(name="Event", value=event_name, inline=True)
+        ticket_title = "Ticket #" + ticket_id[:8]
+        embed = discord.Embed(title=ticket_title, color=discord.Color.red())
+        embed.add_field(name="Created By", value=interaction.user.mention, inline=True)
         embed.add_field(name="Help Category", value=self.selected_help_category, inline=True)
-        embed.add_field(name="Created By", value=interaction.user.mention, inline=False)
-        embed.add_field(name="Location", value=self.location.value, inline=False)
+        embed.add_field(name="Where are you located", value=self.location.value, inline=False)
         embed.add_field(name="Description", value=self.description.value, inline=False)
         embed.add_field(name="Status", value="OPEN", inline=False)
 
         claim_view = ClaimTicketView(ticket_id=ticket_id, event_id=event_id)
+
+        mentor_ping = f"<@&{MENTOR_ROLE_TO_ID_DICTIONARY[self.selected_help_category]}>"
+        try:
+            queue_message = await tickets_channel.send(
+                content=f"{mentor_ping} New ticket needs help.",
+                embed=embed,
+                view=claim_view
+            )
+        except discord.HTTPException:
+            await interaction.response.send_message(
+                "Error posting to the mentor channel failed.",
+                ephemeral=True,
+            )
+            return
 
         ticket_item = {
             "id": ticket_id,
@@ -112,28 +125,20 @@ class TicketCreateModal(discord.ui.Modal):
             "location": self.location.value,
             "status": "OPEN",
             "queueChannelId": str(tickets_channel.id),
+            "queueMessageId": str(queue_message.id),
             "createdAt": now,
         }
 
         try:
             await db.create(ticket_item, TICKETS_TABLE)
         except Exception:
-            await interaction.response.send_message(
-                "Ticket could not be saved to DB, so it was not sent to mentors.",
-                ephemeral=True,
-            )
-            return
+            try:
+                await queue_message.delete()
+            except discord.HTTPException:
+                pass
 
-        mentor_ping = f"<@&{MENTOR_ROLE_TO_ID_DICTIONARY[self.selected_help_category]}>"
-        try:
-            await tickets_channel.send(
-                content=f"{mentor_ping} New ticket needs help.",
-                embed=embed,
-                view=claim_view
-            )
-        except discord.HTTPException:
             await interaction.response.send_message(
-                "Error posting to the mentor channel failed.",
+                "Ticket could not be saved to DB, so the mentor message was removed.",
                 ephemeral=True,
             )
             return
