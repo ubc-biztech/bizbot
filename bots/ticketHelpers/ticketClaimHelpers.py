@@ -103,6 +103,5 @@ async def create_private_ticket_channel(
         name=f"ticket-{ticket_id[:8]}",
         category=category,
         overwrites=overwrites,
-        topic=f"Ticket {ticket_id[:8]}",
         reason=f"Ticket claimed by {claimed_by} ({claimed_by.id})",
     )
