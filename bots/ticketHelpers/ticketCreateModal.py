@@ -2,8 +2,16 @@ import uuid
 from datetime import datetime, timezone
 
 import discord
+from botocore.exceptions import ClientError
 from bots.constants import TICKETS_TABLE
 from bots.db import db
+from .ticketClaimHelpers import (
+    create_private_ticket_channel,
+    member_has_any_role,
+    resolve_member,
+    roles_from_ids,
+    set_ticket_message_claimed,
+)
 
 # Hard-coded for now;
 MENTOR_ROLE_TO_ID_DICTIONARY = {
@@ -13,20 +21,178 @@ MENTOR_ROLE_TO_ID_DICTIONARY = {
     "UX" : 1482998230013841521
 }
 
+EXEC_ROLE_IDS = [
+    1404646631688896604, #Biztech Server
+    1396397591465300098, #Biztech test Server
+    1423137037518770199
+]
 
-# Stub
+MENTOR_ROLE_IDS = [
+    
+]
+
+CLAIM_ALLOWED_ROLE_IDS = list({*EXEC_ROLE_IDS, *MENTOR_ROLE_IDS})
+
+
 class ClaimTicketView(discord.ui.View):
-    def __init__(self, ticket_id: str, event_id: str) -> None:
+    def __init__(self, ticket_id: str, event_year_key: str) -> None:
         super().__init__(timeout=None)
         self.ticket_id = ticket_id
-        self.event_id = event_id
+        self.event_year_key = event_year_key
+
+    @staticmethod
+    def _safe_int(value: object) -> int | None:
+        try:
+            if value is None:
+                return None
+            return int(str(value))
+        except (TypeError, ValueError):
+            return None
 
     @discord.ui.button(label="Claim", style=discord.ButtonStyle.primary)
     async def claim_ticket(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await interaction.response.send_message(
-            f"Ticket `{self.ticket_id[:8]}` TODO.",
+        
+        guild = interaction.guild
+        if guild is None:
+            await interaction.response.send_message(
+                "Claims can only be handled inside a server.",
+                ephemeral=True,
+            )
+            return
+        
+        if not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message(
+                "Could not validate your server roles.",
+                ephemeral=True,
+            )
+            return
+
+        if not member_has_any_role(interaction.user, CLAIM_ALLOWED_ROLE_IDS):
+            await interaction.response.send_message(
+                "You do not have permission to claim tickets.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        table = db._get_table(TICKETS_TABLE)
+        claimed_at = datetime.now(timezone.utc).isoformat()
+
+        
+        try:
+            update_response = table.update_item(
+                Key={
+                    "ticketID": self.ticket_id,
+                    "eventID;year": self.event_year_key,
+                },
+                UpdateExpression=(
+                    "SET #status = :claimed, "
+                    "claimedBy = :claimedBy, "
+                    "claimedAt = :claimedAt"
+                ),
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":open": "OPEN",
+                    ":claimed": "CLAIMED",
+                    ":claimedBy": str(interaction.user.id),
+                    ":claimedAt": claimed_at,
+                },
+                ConditionExpression="#status = :open",
+                ReturnValues="ALL_NEW",
+            )
+        except ClientError as err:
+            error_code = err.response.get("Error", {}).get("Code")
+            if error_code == "ConditionalCheckFailedException":
+                await interaction.followup.send(
+                    "Ticket is already claimed",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    "Could not claim ticket due to a DB error.",
+                    ephemeral=True,
+                )
+            return
+        except Exception:
+            await interaction.followup.send(
+                "Could not claim ticket due to an unexpected error.",
+                ephemeral=True,
+            )
+            return
+
+        ticket = update_response.get("Attributes", {})
+
+        created_by_id = self._safe_int(ticket.get("createdBy"))
+
+        if (not isinstance(interaction.channel, discord.TextChannel) or interaction.message is None):
+            await interaction.followup.send(
+                "Could not resolve the original ticket message.",
+                ephemeral=True,
+            )
+            return
+
+        queue_channel = interaction.channel
+        queue_message = interaction.message
+
+        try:
+            await set_ticket_message_claimed(
+                message=queue_message,
+                claimer_mention=interaction.user.mention,
+                ticket_id=self.ticket_id,
+            )
+        except discord.HTTPException:
+            pass
+        
+        # create private channel
+        created_by_member = await resolve_member(guild, created_by_id)
+
+        exec_roles = roles_from_ids(guild, EXEC_ROLE_IDS)
+
+        try:
+            private_ticket_channel = await create_private_ticket_channel(
+                guild=guild,
+                ticket_id=self.ticket_id,
+                claimed_by=interaction.user,
+                created_by=created_by_member,
+                exec_roles=exec_roles,
+                category=queue_channel.category,
+            )
+        except discord.HTTPException:
+            await interaction.followup.send(
+                "Ticket claimed, but failed to create private channel.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            table.update_item(
+                Key={
+                    "ticketID": self.ticket_id,
+                    "eventID;year": self.event_year_key,
+                },
+                UpdateExpression="SET privateChannelId = :privateChannelId",
+                ExpressionAttributeValues={
+                    ":privateChannelId": str(private_ticket_channel.id),
+                },
+            )
+        except Exception:
+            pass
+
+        mentions = [interaction.user.mention]
+        if created_by_member is not None:
+            mentions.append(created_by_member.mention)
+        elif created_by_id is not None:
+            mentions.append(f"<@{created_by_id}>")
+
+        await private_ticket_channel.send(
+            " ".join(mentions) + "\nTicket claimed. Continue discussion here."
+        )
+
+        await interaction.followup.send(
+            f"Ticket claimed. Private channel created: {private_ticket_channel.mention}",
             ephemeral=True,
         )
 
@@ -97,7 +263,7 @@ class TicketCreateModal(discord.ui.Modal):
         embed.add_field(name="Description", value=self.description.value, inline=False)
         embed.add_field(name="Status", value="OPEN", inline=False)
 
-        claim_view = ClaimTicketView(ticket_id=ticket_id, event_id=event_id)
+        claim_view = ClaimTicketView(ticket_id=ticket_id, event_year_key=event_year_key)
 
         mentor_ping = f"<@&{MENTOR_ROLE_TO_ID_DICTIONARY[self.selected_help_category]}>"
         try:
@@ -114,7 +280,6 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         ticket_item = {
-            "id": ticket_id,
             "ticketID": ticket_id,
             "eventID;year": event_year_key,
             "eventId": event_id,
