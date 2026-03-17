@@ -34,8 +34,16 @@ async def on_ready():
 
     # Sync slash commands with Discord
     try:
-        synced = await bot.tree.sync()
-        print(f"✓ Synced {len(synced)} command(s)")
+        guild_id = os.getenv("DISCORD_GUILD_ID")
+        if guild_id:
+            guild = discord.Object(id=int(guild_id))
+            # Mirror globals to one guild for fast local/dev propagation.
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            print(f"✓ Synced {len(synced)} command(s) to guild {guild_id}")
+        else:
+            synced = await bot.tree.sync()
+            print(f"✓ Synced {len(synced)} global command(s)")
     except Exception as e:
         print(f"✗ Failed to sync commands: {e}")
 
@@ -64,7 +72,7 @@ async def load_cogs():
         "bots.cogs.test",
         # Add more cogs here as you create them:
         # "bots.cogs.verify",
-        # "bots.cogs.tickets",
+        "bots.cogs.tickets",
     ]
 
     for cog in cogs_to_load:
