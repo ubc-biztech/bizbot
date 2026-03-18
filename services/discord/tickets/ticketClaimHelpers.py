@@ -1,4 +1,6 @@
 import discord
+from lib.db import db
+from lib.constants import COUNTER_KEY, TICKETS_TABLE
 
 
 def member_has_any_role(member: discord.Member, role_ids: list[int]) -> bool:
@@ -63,6 +65,24 @@ async def set_ticket_message_claimed(
 
     await message.edit(embed=updated_embed, view=None)
 
+async def get_ticket_id(eventID, year) -> int:
+    item = await db.update_db(
+                key={
+                    "ticketID": COUNTER_KEY,
+                    "eventID;year": f"{eventID};{year}"
+                },
+                table=TICKETS_TABLE,
+                update_expression=(
+                    "ADD #counter :inc"
+                ),
+                expression_attribute_names={"#counter": "counter"},
+                expression_attribute_values={
+                    ":inc": 1,
+                },
+                return_values="UPDATED_NEW",
+            )
+
+    return item["counter"]
 
 async def create_private_ticket_channel(
     guild: discord.Guild,

@@ -613,3 +613,5 @@ RESERVED_WORDS = {
     "YEAR",
     "ZONE",
 }
+
+COUNTER_KEY = "COUNTER"
