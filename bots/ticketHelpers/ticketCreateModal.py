@@ -101,6 +101,7 @@ class ClaimTicketView(discord.ui.View):
                 return_values="ALL_NEW",
             )
         except ClientError as err:
+            print(f"[ClaimTicket] ClientError: {err}")
             error_code = err.response.get("Error", {}).get("Code")
             if error_code == "ConditionalCheckFailedException":
                 await interaction.followup.send(
@@ -113,7 +114,8 @@ class ClaimTicketView(discord.ui.View):
                     ephemeral=True,
                 )
             return
-        except Exception:
+        except Exception as e:
+            print(f"[ClaimTicket] Exception during DB update: {e}")
             await interaction.followup.send(
                 "Could not claim ticket due to an unexpected error.",
                 ephemeral=True,
@@ -143,13 +145,22 @@ class ClaimTicketView(discord.ui.View):
                 claimer_mention=interaction.user.mention,
                 ticket_id=self.ticket_id,
             )
-        except discord.HTTPException:
-            pass
+        except discord.HTTPException as e:
+            print(f"[ClaimTicket] Failed to update ticket message: {e}")
 
         # create private channel
         created_by_member = await resolve_member(guild, created_by_id)
 
         exec_roles = roles_from_ids(guild, EXEC_ROLE_IDS)
+
+        # Get bot member for channel permissions
+        bot_member = guild.me
+        if bot_member is None:
+            await interaction.followup.send(
+                "Could not resolve bot permissions.",
+                ephemeral=True,
+            )
+            return
 
         try:
             private_ticket_channel = await create_private_ticket_channel(
@@ -159,8 +170,10 @@ class ClaimTicketView(discord.ui.View):
                 created_by=created_by_member,
                 exec_roles=exec_roles,
                 category=queue_channel.category,
+                bot_member=bot_member,
             )
-        except discord.HTTPException:
+        except discord.HTTPException as e:
+            print(f"[ClaimTicket] Failed to create private channel: {e}")
             await interaction.followup.send(
                 "Ticket claimed, but failed to create private channel.",
                 ephemeral=True,
@@ -176,8 +189,8 @@ class ClaimTicketView(discord.ui.View):
                 table=TICKETS_TABLE,
                 obj={"privateChannelId": str(private_ticket_channel.id)},
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[ClaimTicket] Failed to save private channel ID: {e}")
 
         mentions = [interaction.user.mention]
         if created_by_member is not None:

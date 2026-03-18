@@ -376,7 +376,8 @@ class DynamoDBHelper:
 
         Raises:
             ValueError if both obj and update_expression are provided
-            Exception with formatted error response if operation fails
+            ClientError for DynamoDB-specific errors (e.g., ConditionalCheckFailedException)
+            Exception with formatted error response for other failures
         """
         # Validate mutual exclusivity
         if obj and update_expression:
@@ -427,6 +428,10 @@ class DynamoDBHelper:
 
             response = table_resource.update_item(**update_kwargs)
             return response
+        except ClientError:
+            # Let ClientError bubble up so callers can handle specific errors
+            # (e.g., ConditionalCheckFailedException)
+            raise
         except Exception as err:
             error_response = self.dynamo_error_response(err)
             raise Exception(error_response)

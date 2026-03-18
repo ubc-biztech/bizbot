@@ -71,12 +71,29 @@ async def create_private_ticket_channel(
     created_by: discord.Member | None,
     exec_roles: list[discord.Role],
     category: discord.CategoryChannel | None,
+    bot_member: discord.Member,
 ) -> discord.TextChannel:
+    """
+    Create a private channel for a claimed ticket.
+
+    Permission model:
+    - @everyone: hidden (view_channel=False)
+    - Bot: can view and send messages
+    - Participants (claimer, ticket creator): can view and send messages
+    - Exec roles: same as participants + manage_messages
+
+    The channel is created under the same category as the ticket queue.
+    """
     overwrites: dict[
         discord.Role | discord.Member | discord.Object,
         discord.PermissionOverwrite,
     ] = {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        bot_member: discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+        ),
         claimed_by: discord.PermissionOverwrite(
             view_channel=True,
             send_messages=True,

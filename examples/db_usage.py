@@ -40,7 +40,7 @@ async def example_usage():
             "status": "inactive",
             "lastLogin": 1234567890,
         }
-        await db.update_db("user-123", update_data, "Users")
+        await db.update_db("user-123", "Users", obj=update_data)
         print("✓ User updated successfully")
     except Exception as e:
         print(f"✗ Error updating user: {e}")
