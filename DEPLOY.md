@@ -68,7 +68,6 @@ Fill in your actual values in `.env`:
 ```bash
 DISCORD_TOKEN=your_actual_discord_bot_token
 DISCORD_GUILD_ID=your_guild_id
-DYNAMODB_TABLE_NAME=bizbot-tickets
 AWS_REGION=us-east-1
 ```
 
@@ -77,30 +76,11 @@ AWS_REGION=us-east-1
 The Lightsail instance must have an IAM role with DynamoDB access. Test with:
 
 ```bash
-aws dynamodb list-tables --region us-east-1
+aws dynamodb list-tables --region us-west-2
 ```
 
-If this fails, attach an IAM role via the Lightsail console with these permissions:
+If nothing exists create an IAM user for the server with the limited DynamoDB permissions that are required. Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the .env file that was configured earlier. If your PM2 instance is already running you may need to run it with `pm2 restart --update-env`
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan"
-      ],
-      "Resource": "arn:aws:dynamodb:*:*:table/bizbot-*"
-    }
-  ]
-}
-```
 
 ---
 
@@ -108,7 +88,7 @@ If this fails, attach an IAM role via the Lightsail console with these permissio
 
 ```bash
 # Install Python dependencies using uv
-uv sync
+uv sync --frozen
 
 # Test the bot locally (optional)
 uv run python main.py
@@ -121,8 +101,6 @@ uv run python main.py
 
 Update the deployment path in `ecosystem.config.js`:
 
-```bash
-nano ecosystem.config.js
 # Change 'cwd' to: /opt/bizbot
 ```
 
@@ -135,8 +113,8 @@ mkdir -p logs
 Start the bot with PM2:
 
 ```bash
-pm2 start ecosystem.config.js
-pm2 logs bizbot  # View logs
+pm2 start bizbot
+pm2 logs # view logs
 ```
 
 ### Enable Auto-Start on Boot
