@@ -7,7 +7,7 @@ Provides commands for ticket functionality
 import discord
 from discord import app_commands
 from discord.ext import commands
-from bots.ticketHelpers.ticketCategoryView import TicketCategoryView
+from .ticketCategoryView import TicketCategoryView
 
 
 class TicketCog(commands.Cog):

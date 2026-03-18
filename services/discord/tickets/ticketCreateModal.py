@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 import discord
 from botocore.exceptions import ClientError
-from bots.constants import TICKETS_TABLE
-from bots.db import db
+from lib.constants import TICKETS_TABLE
+from lib.db import db
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
     member_has_any_role,
