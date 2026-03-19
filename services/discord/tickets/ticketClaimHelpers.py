@@ -48,7 +48,6 @@ async def set_ticket_message_claimed(
         return
     updated_embed = discord.Embed.from_dict(message.embeds[0].to_dict())
 
-
     updated_embed.color = discord.Color.blue()
     status_text = f"CLAIMED by {claimer}"
     status_updated = False
@@ -69,24 +68,21 @@ async def set_ticket_message_claimed(
 
     await message.edit(embed=updated_embed, view=None)
 
+
 async def get_ticket_id(eventID, year) -> int:
     item = await db.update_db(
-                key={
-                    "ticketID": COUNTER_KEY,
-                    "eventID;year": f"{eventID};{year}"
-                },
-                table=TICKETS_TABLE,
-                update_expression=(
-                    "ADD #counter :inc"
-                ),
-                expression_attribute_names={"#counter": "counter"},
-                expression_attribute_values={
-                    ":inc": 1,
-                },
-                return_values="UPDATED_NEW",
-            )
+        key={"ticketID": COUNTER_KEY, "eventID;year": f"{eventID};{year}"},
+        table=TICKETS_TABLE,
+        update_expression=("ADD #counter :inc"),
+        expression_attribute_names={"#counter": "counter"},
+        expression_attribute_values={
+            ":inc": 1,
+        },
+        return_values="UPDATED_NEW",
+    )
 
     return item["counter"]
+
 
 async def create_private_ticket_channel(
     guild: discord.Guild,

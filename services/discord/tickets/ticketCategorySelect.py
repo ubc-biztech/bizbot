@@ -16,7 +16,7 @@ class TicketCategorySelect(discord.ui.Select):
             placeholder="Select what you need help with...",
             min_values=1,
             max_values=1,
-            options=options
+            options=options,
         )
 
     async def callback(self, interaction: discord.Interaction):
