@@ -1,4 +1,12 @@
 {
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ],
   "venv": ".venv",
   "venvPath": "."
 }
