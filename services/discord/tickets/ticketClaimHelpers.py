@@ -1,6 +1,8 @@
 import discord
-from lib.db import db
+
 from lib.constants import COUNTER_KEY, TICKETS_TABLE
+from lib.db import db
+
 
 def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
     """Return True if member has at least one role from role_ids."""

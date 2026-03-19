@@ -1,6 +1,9 @@
 import discord
+
 from services.discord.constants.temp_discord_roles import MENTOR_ROLE_TO_ID_DICTIONARY
+
 from .ticketCreateModal import TicketCreateModal
+
 
 class TicketCategorySelect(discord.ui.Select):
     def __init__(self):
