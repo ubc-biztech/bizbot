@@ -12,8 +12,12 @@ from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
 
 from .constants import RESERVED_WORDS
+
+load_dotenv(override=True)
+
 
 
 class DynamoDBHelper:
