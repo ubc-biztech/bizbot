@@ -1,8 +1,9 @@
-from decimal import Decimal
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import discord
 from botocore.exceptions import ClientError
+
 from lib.constants import TICKETS_TABLE
 from lib.db import db
 from services.discord.constants.temp_discord_roles import (
@@ -10,12 +11,12 @@ from services.discord.constants.temp_discord_roles import (
     EXEC_ROLE_IDS,
     MENTOR_ROLE_TO_ID_DICTIONARY,
 )
+
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
     get_ticket_id,
     member_has_any_role,
     resolve_member,
-    roles_from_ids,
     set_ticket_message_claimed,
 )
 
@@ -194,7 +195,8 @@ class ClaimTicketView(discord.ui.View):
         )
 
         await interaction.followup.send(
-            f"Ticket claimed. Private channel created: {private_ticket_channel.mention}",
+            f"Ticket claimed. Private channel created: "
+            f"{private_ticket_channel.mention}",
             ephemeral=True,
         )
 
@@ -234,14 +236,15 @@ class TicketCreateModal(discord.ui.Modal):
 
         if category is None:
             await interaction.response.send_message(
-                "Please create tickets from a server text channel under an event category.",
+                "Please create tickets from a server text channel "
+                "under an event category.",
                 ephemeral=True,
             )
             return
 
         event_id = str(category.id)
         event_name = category.name
-        
+
         now_utc = datetime.now(timezone.utc)
         ticket_id = 0
         try:
@@ -279,7 +282,9 @@ class TicketCreateModal(discord.ui.Modal):
         embed.add_field(name="Description", value=self.description.value, inline=False)
         embed.add_field(name="Status", value="OPEN", inline=False)
 
-        claim_view = ClaimTicketView(ticket_id=str(ticket_id), event_year_key=event_year_key)
+        claim_view = ClaimTicketView(
+            ticket_id=str(ticket_id), event_year_key=event_year_key
+        )
 
         mentor_role_id = MENTOR_ROLE_TO_ID_DICTIONARY.get(self.selected_help_category)
         if mentor_role_id is None:
