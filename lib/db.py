@@ -157,13 +157,13 @@ class DynamoDBHelper:
             raise Exception(error_response)
 
     async def get_one(
-        self, item_id: str, table: str, extra_keys: Optional[Dict[str, Any]] = None
+        self, id: str, table: str, extra_keys: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get single item from DynamoDB table.
 
         Args:
-            item_id: Primary key id
+            id: Primary key id
             table: Table name (without environment suffix)
             extra_keys: Additional keys for composite primary keys
 
@@ -175,7 +175,7 @@ class DynamoDBHelper:
         """
         try:
             table_resource = self._get_table(table)
-            key = {"id": item_id}
+            key = {"id": id}
             if extra_keys:
                 key.update(extra_keys)
 
@@ -386,10 +386,7 @@ class DynamoDBHelper:
             raise ValueError("Must specify either 'obj' or 'update_expression'")
 
         # Convert string key to dict for backward compatibility
-        if isinstance(key, str):
-            key_dict = {"id": key}
-        else:
-            key_dict = key
+        key_dict = {"id": key} if isinstance(key, str) else key
 
         try:
             table_resource = self._get_table(table)
@@ -427,7 +424,7 @@ class DynamoDBHelper:
                 update_kwargs["ConditionExpression"] = condition_expression
 
             response = table_resource.update_item(**update_kwargs)
-            return response
+            return response['Attributes'] or {}
         except ClientError:
             # Let ClientError bubble up so callers can handle specific errors
             # (e.g., ConditionalCheckFailedException)

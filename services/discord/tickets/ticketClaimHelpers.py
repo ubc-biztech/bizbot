@@ -1,10 +1,24 @@
 import discord
-
+from lib.db import db
+from lib.constants import COUNTER_KEY, TICKETS_TABLE
 
 def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
     """Return True if member has at least one role from role_ids."""
     member_role_ids = {role.id for role in member.roles}
     return any(role_id in member_role_ids for role_id in role_ids)
+
+
+def roles_from_ids(guild: discord.Guild, role_ids: list[int]) -> list[discord.Role]:
+    roles: list[discord.Role] = []
+    seen: set[int] = set()
+    for role_id in role_ids:
+        if role_id in seen:
+            continue
+        seen.add(role_id)
+        role = guild.get_role(role_id)
+        if role is not None:
+            roles.append(role)
+    return roles
 
 
 async def resolve_member(
@@ -53,6 +67,24 @@ async def set_ticket_message_claimed(
 
     await message.edit(embed=updated_embed, view=None)
 
+async def get_ticket_id(eventID, year) -> int:
+    item = await db.update_db(
+                key={
+                    "ticketID": COUNTER_KEY,
+                    "eventID;year": f"{eventID};{year}"
+                },
+                table=TICKETS_TABLE,
+                update_expression=(
+                    "ADD #counter :inc"
+                ),
+                expression_attribute_names={"#counter": "counter"},
+                expression_attribute_values={
+                    ":inc": 1,
+                },
+                return_values="UPDATED_NEW",
+            )
+
+    return item["counter"]
 
 async def create_private_ticket_channel(
     guild: discord.Guild,

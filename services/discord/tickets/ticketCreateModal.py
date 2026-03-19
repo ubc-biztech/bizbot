@@ -1,4 +1,3 @@
-import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 
@@ -13,8 +12,10 @@ from services.discord.constants.temp_discord_roles import (
 )
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
+    get_ticket_id,
     member_has_any_role,
     resolve_member,
+    roles_from_ids,
     set_ticket_message_claimed,
 )
 
@@ -240,9 +241,18 @@ class TicketCreateModal(discord.ui.Modal):
 
         event_id = str(category.id)
         event_name = category.name
-
-        ticket_id = str(uuid.uuid4())
+        
         now_utc = datetime.now(timezone.utc)
+        ticket_id = 0
+        try:
+            ticket_id = await get_ticket_id(event_name, now_utc.year)
+        except Exception as e:
+            print(e)
+            await interaction.response.send_message(
+                "Unable to read ticket counter for this event.", ephemeral=True
+            )
+            return
+
         created_at_epoch = int(now_utc.timestamp() * 1000)
         event_year_key = f"{event_name};{now_utc.year}"
 
@@ -257,7 +267,7 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         # Queue message into mentor chat
-        ticket_title = "Ticket #" + ticket_id[:8]
+        ticket_title = f"Ticket #{ticket_id}"
         embed = discord.Embed(title=ticket_title, color=discord.Color.red())
         embed.add_field(name="Created By", value=interaction.user.mention, inline=True)
         embed.add_field(
@@ -269,7 +279,7 @@ class TicketCreateModal(discord.ui.Modal):
         embed.add_field(name="Description", value=self.description.value, inline=False)
         embed.add_field(name="Status", value="OPEN", inline=False)
 
-        claim_view = ClaimTicketView(ticket_id=ticket_id, event_year_key=event_year_key)
+        claim_view = ClaimTicketView(ticket_id=str(ticket_id), event_year_key=event_year_key)
 
         mentor_role_id = MENTOR_ROLE_TO_ID_DICTIONARY.get(self.selected_help_category)
         if mentor_role_id is None:
@@ -294,7 +304,7 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         ticket_item = {
-            "ticketID": ticket_id,
+            "ticketID": str(ticket_id),
             "eventID;year": event_year_key,
             "eventId": event_id,
             "eventName": event_name,
@@ -323,6 +333,6 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         await interaction.response.send_message(
-            f"Your ticket has been created. Ticket ID: `{ticket_id[:8]}`",
+            f"Your ticket has been created. Ticket ID: `{ticket_id}`",
             ephemeral=True,
         )

@@ -22,5 +22,6 @@ class TicketCategorySelect(discord.ui.Select):
 
         try:
             await interaction.delete_original_response()
-        except (discord.NotFound, discord.HTTPException):
+        except (discord.NotFound, discord.HTTPException) as e:
+            print(e)
             pass
