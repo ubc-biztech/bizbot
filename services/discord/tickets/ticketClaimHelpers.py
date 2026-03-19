@@ -2,8 +2,8 @@ import discord
 from lib.db import db
 from lib.constants import COUNTER_KEY, TICKETS_TABLE
 
-
-def member_has_any_role(member: discord.Member, role_ids: list[int]) -> bool:
+def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
+    """Return True if member has at least one role from role_ids."""
     member_role_ids = {role.id for role in member.roles}
     return any(role_id in member_role_ids for role_id in role_ids)
 
@@ -24,6 +24,7 @@ def roles_from_ids(guild: discord.Guild, role_ids: list[int]) -> list[discord.Ro
 async def resolve_member(
     guild: discord.Guild, member_id: int | None
 ) -> discord.Member | None:
+    """Resolve a guild member by ID via cache first, then API fallback."""
     if member_id is None:
         return None
 
@@ -38,15 +39,16 @@ async def resolve_member(
 
 
 async def set_ticket_message_claimed(
-    message: discord.Message, claimer_mention: str, ticket_id: str
+    message: discord.Message, claimer: str, ticket_id: str
 ) -> None:
-    if message.embeds:
-        updated_embed = discord.Embed.from_dict(message.embeds[0].to_dict())
-    else:
-        updated_embed = discord.Embed(title=f"Ticket #{ticket_id[:8]}")
+    """Set ticket embed status to claimed and remove interactive view."""
+    if not message.embeds:
+        return
+    updated_embed = discord.Embed.from_dict(message.embeds[0].to_dict())
+
 
     updated_embed.color = discord.Color.blue()
-    status_text = f"CLAIMED by {claimer_mention}"
+    status_text = f"CLAIMED by {claimer}"
     status_updated = False
 
     for idx, field in enumerate(updated_embed.fields):

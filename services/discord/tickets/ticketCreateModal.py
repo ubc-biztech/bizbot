@@ -1,10 +1,15 @@
+from decimal import Decimal
 from datetime import datetime, timezone
 
 import discord
-
 from botocore.exceptions import ClientError
 from lib.constants import TICKETS_TABLE
 from lib.db import db
+from services.discord.constants.temp_discord_roles import (
+    CLAIM_ALLOWED_ROLE_IDS,
+    EXEC_ROLE_IDS,
+    MENTOR_ROLE_TO_ID_DICTIONARY,
+)
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
     get_ticket_id,
@@ -14,39 +19,12 @@ from .ticketClaimHelpers import (
     set_ticket_message_claimed,
 )
 
-# Hard-coded for now;
-MENTOR_ROLE_TO_ID_DICTIONARY = {
-    "frontend": 1482999081302364161,
-    "backend": 1482999306196750449,
-    "product": 1482999350266298438,
-    "UX": 1482998230013841521,
-}
-
-EXEC_ROLE_IDS = [
-    1404646631688896604,  # Biztech Server
-    1396397591465300098,  # Biztech test Server
-    1423137037518770199,
-]
-
-MENTOR_ROLE_IDS = []
-
-CLAIM_ALLOWED_ROLE_IDS = list({*EXEC_ROLE_IDS, *MENTOR_ROLE_IDS})
-
 
 class ClaimTicketView(discord.ui.View):
     def __init__(self, ticket_id: str, event_year_key: str) -> None:
         super().__init__(timeout=None)
         self.ticket_id = ticket_id
         self.event_year_key = event_year_key
-
-    @staticmethod
-    def _safe_int(value: object) -> int | None:
-        try:
-            if value is None:
-                return None
-            return int(str(value))
-        except (TypeError, ValueError):
-            return None
 
     @discord.ui.button(label="Claim", style=discord.ButtonStyle.primary)
     async def claim_ticket(
@@ -77,7 +55,7 @@ class ClaimTicketView(discord.ui.View):
 
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-        claimed_at = datetime.now(timezone.utc).isoformat()
+        claimed_at_epoch = int(datetime.now(timezone.utc).timestamp() * 1000)
 
         try:
             update_response = await db.update_db(
@@ -95,8 +73,8 @@ class ClaimTicketView(discord.ui.View):
                 expression_attribute_values={
                     ":open": "OPEN",
                     ":claimed": "CLAIMED",
-                    ":claimedBy": str(interaction.user.id),
-                    ":claimedAt": claimed_at,
+                    ":claimedBy": interaction.user.id,
+                    ":claimedAt": claimed_at_epoch,
                 },
                 condition_expression="#status = :open",
                 return_values="ALL_NEW",
@@ -124,8 +102,16 @@ class ClaimTicketView(discord.ui.View):
             return
 
         ticket = update_response.get("Attributes", {})
-
-        created_by_id = self._safe_int(ticket.get("createdBy"))
+        created_by_raw = ticket.get("createdBy")
+        if isinstance(created_by_raw, Decimal):
+            created_by_id = int(created_by_raw)
+        elif isinstance(created_by_raw, int):
+            created_by_id = created_by_raw
+        else:
+            try:
+                created_by_id = int(str(created_by_raw))
+            except (TypeError, ValueError):
+                created_by_id = None
 
         if (
             not isinstance(interaction.channel, discord.TextChannel)
@@ -143,7 +129,7 @@ class ClaimTicketView(discord.ui.View):
         try:
             await set_ticket_message_claimed(
                 message=queue_message,
-                claimer_mention=interaction.user.mention,
+                claimer=interaction.user.mention,
                 ticket_id=self.ticket_id,
             )
         except discord.HTTPException as e:
@@ -152,7 +138,11 @@ class ClaimTicketView(discord.ui.View):
         # create private channel
         created_by_member = await resolve_member(guild, created_by_id)
 
-        exec_roles = roles_from_ids(guild, EXEC_ROLE_IDS)
+        exec_roles = [
+            role
+            for role_id in EXEC_ROLE_IDS
+            if (role := guild.get_role(role_id)) is not None
+        ]
 
         # Get bot member for channel permissions
         bot_member = guild.me
@@ -188,7 +178,7 @@ class ClaimTicketView(discord.ui.View):
                     "eventID;year": self.event_year_key,
                 },
                 table=TICKETS_TABLE,
-                obj={"privateChannelId": str(private_ticket_channel.id)},
+                obj={"privateChannelId": private_ticket_channel.id},
             )
         except Exception as e:
             print(f"[ClaimTicket] Failed to save private channel ID: {e}")
@@ -233,6 +223,7 @@ class TicketCreateModal(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         channel = interaction.channel
+
         category: discord.CategoryChannel | None = None
         if isinstance(channel, discord.TextChannel):
             category = channel.category
@@ -250,10 +241,7 @@ class TicketCreateModal(discord.ui.Modal):
 
         event_id = str(category.id)
         event_name = category.name
-
-        now_utc = datetime.now(timezone.utc)
-        now = now_utc.isoformat()
-
+        
         ticket_id = 0
         try:
             ticket_id = await get_ticket_id(event_name, now_utc.year)
@@ -265,6 +253,8 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
 
+        now_utc = datetime.now(timezone.utc)
+        created_at_epoch = int(now_utc.timestamp() * 1000)
         event_year_key = f"{event_name};{now_utc.year}"
 
         tickets_channel = discord.utils.get(
@@ -292,7 +282,15 @@ class TicketCreateModal(discord.ui.Modal):
 
         claim_view = ClaimTicketView(ticket_id=str(ticket_id), event_year_key=event_year_key)
 
-        mentor_ping = f"<@&{MENTOR_ROLE_TO_ID_DICTIONARY[self.selected_help_category]}>"
+        mentor_role_id = MENTOR_ROLE_TO_ID_DICTIONARY.get(self.selected_help_category)
+        if mentor_role_id is None:
+            await interaction.response.send_message(
+                "Selected help category is not configured.",
+                ephemeral=True,
+            )
+            return
+
+        mentor_ping = f"<@&{mentor_role_id}>"
         try:
             queue_message = await tickets_channel.send(
                 content=f"{mentor_ping} New ticket needs help.",
@@ -311,14 +309,14 @@ class TicketCreateModal(discord.ui.Modal):
             "eventID;year": event_year_key,
             "eventId": event_id,
             "eventName": event_name,
-            "createdBy": str(interaction.user.id),
+            "createdBy": interaction.user.id,
             "helpCategory": self.selected_help_category,
             "description": self.description.value,
             "location": self.location.value,
             "status": "OPEN",
-            "queueChannelId": str(tickets_channel.id),
-            "queueMessageId": str(queue_message.id),
-            "createdAt": now,
+            "queueChannelId": tickets_channel.id,
+            "queueMessageId": queue_message.id,
+            "createdAt": created_at_epoch,
         }
 
         try:
