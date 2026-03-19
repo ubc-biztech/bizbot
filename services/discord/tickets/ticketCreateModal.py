@@ -242,6 +242,7 @@ class TicketCreateModal(discord.ui.Modal):
         event_id = str(category.id)
         event_name = category.name
         
+        now_utc = datetime.now(timezone.utc)
         ticket_id = 0
         try:
             ticket_id = await get_ticket_id(event_name, now_utc.year)
@@ -252,8 +253,6 @@ class TicketCreateModal(discord.ui.Modal):
             )
             return
 
-
-        now_utc = datetime.now(timezone.utc)
         created_at_epoch = int(now_utc.timestamp() * 1000)
         event_year_key = f"{event_name};{now_utc.year}"
 
