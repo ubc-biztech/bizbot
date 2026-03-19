@@ -8,8 +8,8 @@ import asyncio
 import uvicorn
 
 from dotenv import load_dotenv
-from bots.client import start_bot, stop_bot
-from api.routes import app
+from services.discord.client import start_bot, stop_bot
+from services.hello.client import app
 
 async def run_fastapi():
     """Run FastAPI server using uvicorn."""

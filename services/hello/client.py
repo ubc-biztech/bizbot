@@ -6,9 +6,9 @@ Provides HTTP endpoints for health checks and testing DynamoDB connectivity.
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from bots.db import db
-from bots.client import bot
-from bots.constants import TICKETS_TABLE
+from services.discord.client import bot
+from lib.db import db
+from lib.constants import TICKETS_TABLE
 
 app = FastAPI(
     title="BizBot API",
