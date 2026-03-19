@@ -1,13 +1,12 @@
 import discord
+from services.discord.constants.temp_discord_roles import MENTOR_ROLE_TO_ID_DICTIONARY
 from .ticketCreateModal import TicketCreateModal
 
 class TicketCategorySelect(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Frontend", value="frontend"),
-            discord.SelectOption(label="Backend", value="backend"),
-            discord.SelectOption(label="Product", value="product"),
-            discord.SelectOption(label="UX", value="UX"),
+            discord.SelectOption(label=category, value=category)
+            for category in MENTOR_ROLE_TO_ID_DICTIONARY.keys()
         ]
 
         super().__init__(
@@ -20,3 +19,9 @@ class TicketCategorySelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         selected_help_category = self.values[0]
         await interaction.response.send_modal(TicketCreateModal(selected_help_category))
+
+        try:
+            await interaction.delete_original_response()
+        except (discord.NotFound, discord.HTTPException) as e:
+            print(e)
+            pass

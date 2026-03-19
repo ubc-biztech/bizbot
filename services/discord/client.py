@@ -69,10 +69,8 @@ async def on_command_error(ctx, error):
 async def load_cogs():
     """Load all cogs from the cogs directory."""
     cogs_to_load = [
-        "bots.cogs.test",
-        # Add more cogs here as you create them:
-        # "bots.cogs.verify",
-        "bots.cogs.tickets",
+        "services.discord.health.health",
+        "services.discord.tickets.tickets",
     ]
 
     for cog in cogs_to_load:
