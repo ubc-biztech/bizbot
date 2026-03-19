@@ -19,7 +19,6 @@ from .constants import RESERVED_WORDS
 load_dotenv(override=True)
 
 
-
 class DynamoDBHelper:
     """
     Comprehensive DynamoDB helper class mirroring the JavaScript implementation.
