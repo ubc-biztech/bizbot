@@ -11,6 +11,10 @@ from discord.ext import commands
 
 from lib.db import db
 
+from .adminEventHelpers import (
+        newEvent
+     )
+
 
 class AdminCog(commands.Cog):
     """Testing commands for BizBot."""
@@ -24,20 +28,24 @@ class AdminCog(commands.Cog):
         await interaction.response.send_modal(ConfigCreateModal(None))
 
     @app_commands.command(name="admin-event-new", description="Create new event")
-    async def newEvent(
+    async def new_event(
             self,
             interaction: discord.Interaction,
             event_name: str, 
             year: int,
             role: discord.Role,
-            mentor_role: discord.Role
+            mentor_role: discord.Role,
+            submit_channel: discord.TextChannel,
+            claim_channel: discord.TextChannel
             
     ):
         await interaction.response.send_message(
                 f"selected: {event_name}, role{role}, mentor{mentor_role}")
 
+        await newEvent(event_name, year, role, mentor_role, submit_channel, claim_channel)
+
     @app_commands.command(name="admin-event-archive", description="Archive event")
-    async def newEvent(
+    async def archive_event(
             self,
             interaction: discord.Interaction,
             event_name: str, 

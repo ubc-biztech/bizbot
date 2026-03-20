@@ -5,6 +5,7 @@ import discord
 from botocore.exceptions import ClientError
 
 from lib.constants import TICKETS_TABLE
+from lib.constants import TICKET_EVENTS_TABLE
 from lib.db import db
 from services.discord.constants.temp_discord_roles import (
     CLAIM_ALLOWED_ROLE_IDS,
@@ -18,6 +19,7 @@ from .ticketClaimHelpers import (
     member_has_any_role,
     resolve_member,
     set_ticket_message_claimed,
+    get_claim_channel_id,
 )
 
 
@@ -257,11 +259,15 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         created_at_epoch = int(now_utc.timestamp() * 1000)
-        event_year_key = f"{event_name};{now_utc.year}"
+        year = now_utc.year
+        event_year_key = f"{event_name};{year}"
 
-        tickets_channel = discord.utils.get(
-            category.text_channels, name="incoming-tickets"
-        )
+        claim_channel_id = await get_claim_channel_id(event_name, year)
+        tickets_channel = interaction.client.get_channel(claim_channel_id)
+        print(tickets_channel)
+                
+
+
 
         if not isinstance(tickets_channel, discord.TextChannel):
             await interaction.response.send_message(
