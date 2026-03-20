@@ -264,8 +264,6 @@ class TicketCreateModal(discord.ui.Modal):
 
         claim_channel_id = await get_claim_channel_id(event_name, year)
         tickets_channel = interaction.client.get_channel(claim_channel_id)
-        print(tickets_channel)
-                
 
 
 
