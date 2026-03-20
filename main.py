@@ -5,11 +5,13 @@ Main entry point that runs both the Discord bot and FastAPI server concurrently.
 """
 
 import asyncio
-import uvicorn
 
+import uvicorn
 from dotenv import load_dotenv
-from bots.client import start_bot, stop_bot
-from api.routes import app
+
+from services.discord.client import start_bot, stop_bot
+from services.hello.client import app
+
 
 async def run_fastapi():
     """Run FastAPI server using uvicorn."""
@@ -29,8 +31,6 @@ async def main():
     print("Starting BizBot...")
     print("=" * 50)
 
-    load_dotenv(override=True)
-
     try:
         await asyncio.gather(start_bot(), run_fastapi())
     except KeyboardInterrupt:
@@ -43,4 +43,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    load_dotenv(override=True)
     asyncio.run(main())

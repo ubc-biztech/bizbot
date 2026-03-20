@@ -4,6 +4,7 @@ DynamoDB constants and reserved words.
 DynamoDB has a list of reserved words that cannot be used directly in
 expressions without attribute name substitution.
 """
+
 CONNECTIONS_TABLE = "bizConnections"
 EVENTS_TABLE = "biztechEvents"
 FEEDBACK_TABLE = "bizFeedback"
@@ -613,3 +614,5 @@ RESERVED_WORDS = {
     "YEAR",
     "ZONE",
 }
+
+COUNTER_KEY = "COUNTER"

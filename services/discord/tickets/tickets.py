@@ -1,13 +1,14 @@
 """
-Test cog for BizBot.
+Ticket cog for BizBot.
 
-Provides testing commands including DynamoDB connectivity test.
+Provides commands for ticket functionality
 """
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from bots.ticketHelpers.ticketCategoryView import TicketCategoryView
+
+from .ticketCategoryView import TicketCategoryView
 
 
 class TicketCog(commands.Cog):
@@ -31,15 +32,14 @@ class TicketCog(commands.Cog):
 
         if category is None:
             await interaction.response.send_message(
-                "Please use `/ticket` inside an event category.",
-                ephemeral=True
+                "Please use `/ticket` inside an event category.", ephemeral=True
             )
             return
 
         await interaction.response.send_message(
             "Select the type of help you need:",
             view=TicketCategoryView(),
-            ephemeral=True
+            ephemeral=True,
         )
 
 

@@ -7,11 +7,11 @@ Provides testing commands including DynamoDB connectivity test.
 import discord
 from discord import app_commands
 from discord.ext import commands
-from bots.constants import TICKETS_TABLE
-from bots.db import db
+
+from lib.db import db
 
 
-class TestCog(commands.Cog):
+class HealthCog(commands.Cog):
     """Testing commands for BizBot."""
 
     def __init__(self, bot: commands.Bot):
@@ -25,11 +25,8 @@ class TestCog(commands.Cog):
             f"🏓 Pong! Latency: {latency}ms", ephemeral=True
         )
 
-    @app_commands.command(
-        name="get-item", description="Get a specific item from DynamoDB"
-    )
-    @app_commands.describe(ticket_id="The ticket ID to retrieve")
-    async def get_item(self, interaction: discord.Interaction, ticket_id: str):
+    @app_commands.command(name="db-connected", description="check db status")
+    async def get_item(self, interaction: discord.Interaction):
         """
         Get a specific item from DynamoDB by ticket_id.
 
@@ -39,28 +36,28 @@ class TestCog(commands.Cog):
 
         try:
             # Modify this key to match your table's primary key structure
-            item = await db.get_one_custom(
-                {
-                    "TableName": TICKETS_TABLE,
-                    "Key": {
-                        "ticketID": {"S": ticket_id},
-                        "eventID;year": {"S": "produhacks;2026"},
-                    },
-                }
-            )
-
-            if item:
-                message = f"✓ **Item Found**\n```json\n{item}\n```"
+            tables = []
+            message = ""
+            page, *_ = db.client.get_paginator("list_tables").paginate()
+            if "TableNames" in page:
+                tables.extend(page["TableNames"])
+                message = (
+                    f"✓ **[PASS] DB Status = Connected**\n"
+                    f"List Tables:\n```json\n{tables}...\n```"
+                )
             else:
-                message = f"✗ **Item Not Found**\nNo item with ticket_id `{ticket_id}` exists."
+                message = "✗ **[PASS] DB Status = Connected, unable to list tables**\n"
 
             await interaction.followup.send(message, ephemeral=True)
 
         except Exception as e:
-            error_message = f"✗ **Query Failed**\nError: ```{str(e)}```"
+            print(e)
+            error_message = (
+                "✗ **[FAIL] DB Status = Disconnected, Check AWS Credentials**\n"
+            )
             await interaction.followup.send(error_message, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
     """Load the TestCog."""
-    await bot.add_cog(TestCog(bot))
+    await bot.add_cog(HealthCog(bot))

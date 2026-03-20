@@ -5,14 +5,15 @@ Initializes the discord.py bot with necessary intents and loads cogs.
 """
 
 import os
+
 import discord
 from discord.ext import commands
-
 
 # Load environment variables
 # Bot setup with intents
 # If you get PrivilegedIntentsRequired errors, enable these in Discord Developer Portal:
-# https://discord.com/developers/applications/ → Your App → Bot → Privileged Gateway Intents
+# https://discord.com/developers/applications/ → Your App → Bot
+# → Privileged Gateway Intents
 intents = discord.Intents.default()
 intents.guilds = True  # Required for basic bot functionality
 intents.message_content = True  # Uncomment if you need to read message content
@@ -69,10 +70,9 @@ async def on_command_error(ctx, error):
 async def load_cogs():
     """Load all cogs from the cogs directory."""
     cogs_to_load = [
-        "bots.cogs.test",
-        # Add more cogs here as you create them:
-        "bots.cogs.verify",
-        "bots.cogs.tickets",
+        "services.discord.health.health",
+        "services.discord.tickets.tickets",
+        "services.discord.verify"
     ]
 
     for cog in cogs_to_load:
