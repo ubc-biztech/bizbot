@@ -71,7 +71,7 @@ async def load_cogs():
     cogs_to_load = [
         "bots.cogs.test",
         # Add more cogs here as you create them:
-        # "bots.cogs.verify",
+        "bots.cogs.verify",
         "bots.cogs.tickets",
     ]
 

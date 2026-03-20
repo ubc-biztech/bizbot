@@ -344,7 +344,7 @@ class DynamoDBHelper:
 
         Uses ConditionExpression to ensure item exists.
         Automatically handles reserved words and adds updatedAt timestamp.
-
+ 
         Args:
             item_id: Primary key id
             obj: Dictionary of attributes to update
