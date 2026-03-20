@@ -6,16 +6,16 @@ Provides commands for ticket functionality
 
 import re
 
-from boto3.dynamodb.conditions import Key
 import discord
+from boto3.dynamodb.conditions import Key
 from discord import app_commands
 from discord.ext import commands
 
 from lib.constants import TICKETS_TABLE
 from lib.db import db
 
-from .ticketCloseConfirmView import TicketCloseConfirmView
 from .ticketCategoryView import TicketCategoryView
+from .ticketCloseConfirmView import TicketCloseConfirmView
 
 
 class TicketCog(commands.Cog):
@@ -77,7 +77,7 @@ class TicketCog(commands.Cog):
         ticket_id = channel_match.group(1)
         category_name = category.name
 
-        # check if this ticket_id and eventID;year is an actual ticket in the db (validate the channel)
+        # validate ticket_id and eventID;year against db
         try:
             table = db._get_table(TICKETS_TABLE)
             query_response = table.query(

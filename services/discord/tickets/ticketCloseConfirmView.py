@@ -37,7 +37,7 @@ class TicketCloseConfirmView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         _ = button
-        
+
         # Guard in case channel doesn't exist anymore
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
@@ -100,7 +100,10 @@ class TicketCloseConfirmView(discord.ui.View):
         # Delete channel
         try:
             await channel.delete(
-                reason=f"Ticket {ticket_id} closed by {interaction.user} ({interaction.user.id})"
+                reason=(
+                    f"Ticket {ticket_id} closed by "
+                    f"{interaction.user} ({interaction.user.id})"
+                )
             )
         except discord.HTTPException as e:
             print(f"[TicketClose] Failed to delete private channel: {e}")
