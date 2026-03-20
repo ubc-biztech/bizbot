@@ -6,17 +6,16 @@ DynamoDB operations using boto3. IAM permissions are provided by the AWS
 Lightsail instance role - no credentials needed in code.
 """
 
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
 import os
 import time
-from typing import Any, Dict, List, Optional
-
+from typing import Optional, Dict, Any, List 
 import boto3
 from botocore.exceptions import ClientError
-from dotenv import load_dotenv
 
 from .constants import RESERVED_WORDS
-
-load_dotenv(override=True)
 
 
 class DynamoDBHelper:
@@ -154,16 +153,16 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def get_one(
-        self, id: str, table: str, extra_keys: Optional[Dict[str, Any]] = None
+        self, item_id: str, table: str, extra_keys: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get single item from DynamoDB table.
 
         Args:
-            id: Primary key id
+            item_id: Primary key id
             table: Table name (without environment suffix)
             extra_keys: Additional keys for composite primary keys
 
@@ -175,7 +174,7 @@ class DynamoDBHelper:
         """
         try:
             table_resource = self._get_table(table)
-            key = {"id": id}
+            key = {"id": item_id}
             if extra_keys:
                 key.update(extra_keys)
 
@@ -183,7 +182,7 @@ class DynamoDBHelper:
             return response.get("Item")
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def get_one_custom(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -203,7 +202,7 @@ class DynamoDBHelper:
             return response.get("Item")
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def scan(
         self,
@@ -251,7 +250,7 @@ class DynamoDBHelper:
             return items
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def batch_get(
         self, batch: List[Dict[str, Any]], table_name: str
@@ -278,7 +277,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def batch_delete(
         self, items: List[Dict[str, Any]], table_name: str
@@ -306,7 +305,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def delete_one(
         self, item_id: str, table: str, extra_keys: Optional[Dict[str, Any]] = None
@@ -335,106 +334,50 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def update_db(
-        self,
-        key: str | Dict[str, Any],
-        table: str,
-        obj: Optional[Dict[str, Any]] = None,
-        update_expression: Optional[str] = None,
-        expression_attribute_values: Optional[Dict[str, Any]] = None,
-        expression_attribute_names: Optional[Dict[str, str]] = None,
-        condition_expression: Optional[str] = None,
-        return_values: str = "UPDATED_NEW",
+        self, item_id: str, obj: Dict[str, Any], table: str
     ) -> Dict[str, Any]:
         """
         Update item in table.
 
-        Two modes of operation:
-        1. Auto-generate (simple): Pass `obj` dict, UpdateExpression is auto-generated.
-           Automatically handles reserved words and adds updatedAt timestamp.
-        2. Manual (advanced): Pass custom `update_expression` with explicit
-           values/names.
-           Use this for complex operations like conditional updates, ADD, REMOVE, etc.
-
+        Uses ConditionExpression to ensure item exists.
+        Automatically handles reserved words and adds updatedAt timestamp.
+ 
         Args:
-            key: Primary key - string for simple {"id": key} or dict for composite keys
+            item_id: Primary key id
+            obj: Dictionary of attributes to update
             table: Table name (without environment suffix)
-            obj: Dictionary of attributes to update (auto-generates expression).
-                 Mutually exclusive with update_expression.
-            update_expression: Custom UpdateExpression string.
-                              Mutually exclusive with obj.
-            expression_attribute_values: Values for placeholders in expressions
-            expression_attribute_names: Names for attribute aliases (reserved words)
-            condition_expression: ConditionExpression for the update.
-                                  - Auto mode: defaults to checking key existence
-                                  - Manual mode: required
-                                    (pass None explicitly to disable)
-            return_values: What to return (default: UPDATED_NEW)
 
         Returns:
             UpdateItem response
 
         Raises:
-            ValueError if both obj and update_expression are provided
-            ClientError for DynamoDB-specific errors
-            (e.g., ConditionalCheckFailedException)
-            Exception with formatted error response for other failures
+            Exception with formatted error response if operation fails
         """
-        # Validate mutual exclusivity
-        if obj and update_expression:
-            raise ValueError("Cannot specify both 'obj' and 'update_expression'")
-        if not obj and not update_expression:
-            raise ValueError("Must specify either 'obj' or 'update_expression'")
-
-        # Convert string key to dict for backward compatibility
-        key_dict = {"id": key} if isinstance(key, str) else key
-
         try:
+            update_expr = self.create_update_expression(obj)
             table_resource = self._get_table(table)
 
-            if obj:
-                # Auto-generate mode
-                update_expr = self.create_update_expression(obj)
-                final_expression = update_expr["updateExpression"]
-                final_values = update_expr["expressionAttributeValues"]
-                final_names = update_expr.get("expressionAttributeNames")
-
-                # Default condition: check first key exists
-                if condition_expression is None:
-                    first_key = next(iter(key_dict.keys()))
-                    condition_expression = f"attribute_exists({first_key})"
-            else:
-                # Manual mode
-                final_expression = update_expression
-                final_values = expression_attribute_values or {}
-                final_names = expression_attribute_names
-
-            update_kwargs: Dict[str, Any] = {
-                "Key": key_dict,
-                "UpdateExpression": final_expression,
-                "ReturnValues": return_values,
+            update_kwargs = {
+                "Key": {"id": item_id},
+                "UpdateExpression": update_expr["updateExpression"],
+                "ExpressionAttributeValues": update_expr["expressionAttributeValues"],
+                "ReturnValues": "UPDATED_NEW",
+                "ConditionExpression": "attribute_exists(id)",
             }
 
-            if final_values:
-                update_kwargs["ExpressionAttributeValues"] = final_values
-
-            if final_names:
-                update_kwargs["ExpressionAttributeNames"] = final_names
-
-            if condition_expression:
-                update_kwargs["ConditionExpression"] = condition_expression
+            if update_expr["expressionAttributeNames"]:
+                update_kwargs["ExpressionAttributeNames"] = update_expr[
+                    "expressionAttributeNames"
+                ]
 
             response = table_resource.update_item(**update_kwargs)
-            return response["Attributes"] or {}
-        except ClientError:
-            # Let ClientError bubble up so callers can handle specific errors
-            # (e.g., ConditionalCheckFailedException)
-            raise
+            return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def update_db_custom(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -454,7 +397,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def put(
         self, obj: Dict[str, Any], table: str, create_new: bool = False
@@ -485,7 +428,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def put_multiple(
         self, items: List[Dict[str, Any]], tables: List[str], create_new: bool = False
@@ -514,7 +457,7 @@ class DynamoDBHelper:
                             "Access-Control-Allow-Origin": "*",
                             "Access-Control-Allow-Credentials": True,
                         },
-                        "type": "Transaction items length != tables length",
+                        "type": "Transaction items does not match length of tables to write",
                         "body": {"items": items, "tables": tables},
                     }
                 )
@@ -527,10 +470,8 @@ class DynamoDBHelper:
                             "Access-Control-Allow-Origin": "*",
                             "Access-Control-Allow-Credentials": True,
                         },
-                        "type": (
-                            "Cannot exceed 25 transaction items "
-                            "or have an empty transaction"
-                        ),
+                        "type": "Cannot exceed greater than 25 transaction items, or have an empty transaction",
+                        "body": {"items": items, "tables": tables},
                     }
                 )
 
@@ -539,7 +480,7 @@ class DynamoDBHelper:
             )
 
             transact_items = []
-            for obj, table in zip(items, tables, strict=True):
+            for obj, table in zip(items, tables):
                 full_table_name = f"{table}{self.environment}"
                 transact_items.append(
                     {
@@ -555,7 +496,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def write_multiple(
         self, transact_items: List[Dict[str, Any]]
@@ -566,8 +507,7 @@ class DynamoDBHelper:
         Supports Put, Update, Delete, and ConditionCheck operations.
 
         Args:
-            transact_items: List of transaction item dicts
-                (Put/Update/Delete/ConditionCheck)
+            transact_items: List of transaction item dicts (Put/Update/Delete/ConditionCheck)
 
         Returns:
             TransactWriteItems response
@@ -589,10 +529,7 @@ class DynamoDBHelper:
                             "Access-Control-Allow-Origin": "*",
                             "Access-Control-Allow-Credentials": True,
                         },
-                        "type": (
-                            "Cannot exceed 25 transaction items "
-                            "or have an empty transaction"
-                        ),
+                        "type": "Cannot exceed greater than 25 transaction items, or have an empty transaction",
                         "body": {"transactItems": transact_items},
                     }
                 )
@@ -635,7 +572,7 @@ class DynamoDBHelper:
             return response
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
     async def query(
         self,
@@ -650,10 +587,8 @@ class DynamoDBHelper:
         Args:
             table: Table name (without environment suffix)
             index_name: Optional GSI/LSI name
-            key_condition: Dict with 'expression', 'expressionValues',
-                and optional 'expressionNames'
-            filters: Optional dict with FilterExpression,
-                ExpressionAttributeValues, etc.
+            key_condition: Dict with 'expression', 'expressionValues', and optional 'expressionNames'
+            filters: Optional dict with FilterExpression, ExpressionAttributeValues, etc.
 
         Returns:
             List of items matching query
@@ -704,7 +639,7 @@ class DynamoDBHelper:
             return response.get("Items", [])
         except Exception as err:
             error_response = self.dynamo_error_response(err)
-            raise Exception(error_response) from err
+            raise Exception(error_response)
 
 
 # Global instance (singleton)

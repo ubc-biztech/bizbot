@@ -72,6 +72,7 @@ async def load_cogs():
     cogs_to_load = [
         "services.discord.health.health",
         "services.discord.tickets.tickets",
+        "services.discord.verify"
     ]
 
     for cog in cogs_to_load:
