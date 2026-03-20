@@ -69,7 +69,10 @@ async def set_ticket_message_claimed(
     await message.edit(embed=updated_embed, view=None)
 
 
-async def set_ticket_message_closed(message: discord.Message, closer: str,) -> None:
+async def set_ticket_message_closed(
+    message: discord.Message,
+    closer: str,
+) -> None:
     """Set ticket embed status to closed and keep view disabled."""
     if not message.embeds:
         return
