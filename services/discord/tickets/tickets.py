@@ -4,10 +4,17 @@ Ticket cog for BizBot.
 Provides commands for ticket functionality
 """
 
+import re
+
+from boto3.dynamodb.conditions import Key
 import discord
 from discord import app_commands
 from discord.ext import commands
 
+from lib.constants import TICKETS_TABLE
+from lib.db import db
+
+from .ticketCloseConfirmView import TicketCloseConfirmView
 from .ticketCategoryView import TicketCategoryView
 
 
@@ -39,6 +46,67 @@ class TicketCog(commands.Cog):
         await interaction.response.send_message(
             "Select the type of help you need:",
             view=TicketCategoryView(),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="close", description="Close the current ticket channel")
+    async def close(self, interaction: discord.Interaction):
+        """/close command to start ticket close flow."""
+        channel = interaction.channel
+
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+
+        category = channel.category
+        if category is None:
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+
+        channel_match = re.fullmatch(r"ticket-(\d+)", channel.name)
+        if channel_match is None:
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+
+        ticket_id = channel_match.group(1)
+        category_name = category.name
+
+        # check if this ticket_id and eventID;year is an actual ticket in the db (validate the channel)
+        try:
+            table = db._get_table(TICKETS_TABLE)
+            query_response = table.query(
+                KeyConditionExpression=Key("ticketID").eq(ticket_id)
+                & Key("eventID;year").begins_with(f"{category_name};"),
+                Limit=1,
+                ScanIndexForward=False,
+            )
+        except Exception as e:
+            print(f"[TicketClose] Failed DB query: {e}")
+            await interaction.response.send_message(
+                "Could not validate this ticket right now. Please try again.",
+                ephemeral=True,
+            )
+            return
+
+        items = query_response.get("Items", [])
+        if not items:
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message(
+            (
+                "Are you sure you want to close this ticket?\n"
+                "Closing this ticket will permanently delete this channel."
+            ),
+            view=TicketCloseConfirmView(),
             ephemeral=True,
         )
 
