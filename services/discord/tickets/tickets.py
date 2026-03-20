@@ -101,12 +101,21 @@ class TicketCog(commands.Cog):
             )
             return
 
+        ticket_item = items[0]
+        private_channel_id = int(ticket_item.get("privateChannelId"))
+
+        if private_channel_id != channel.id:
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+
         await interaction.response.send_message(
             (
                 "Are you sure you want to close this ticket?\n"
                 "Closing this ticket will permanently delete this channel."
             ),
-            view=TicketCloseConfirmView(),
+            view=TicketCloseConfirmView(ticket=ticket_item),
             ephemeral=True,
         )
 
