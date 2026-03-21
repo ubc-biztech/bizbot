@@ -79,7 +79,7 @@ class TicketCog(commands.Cog):
 
         ticket_id = channel_match.group(1)
         category_name = category.name
-        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}" # TODO CHANGE SORT KEY IN THE FUTURE
+        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}"  # TODO CHANGE SORT KEY IN THE FUTURE
 
         # validate ticket_id and eventID;year against db
         try:
@@ -107,7 +107,8 @@ class TicketCog(commands.Cog):
             return
 
         ticket_item = {
-            key: type_deserializer.deserialize(value) for key, value in ticket_item.items()
+            key: type_deserializer.deserialize(value)
+            for key, value in ticket_item.items()
         }
 
         private_channel_id = int(ticket_item["privateChannelId"])
