@@ -53,5 +53,4 @@ class AdminCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    """Load the TestCog."""
     await bot.add_cog(AdminCog(bot))
