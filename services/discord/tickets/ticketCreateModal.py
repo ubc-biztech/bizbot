@@ -260,10 +260,11 @@ class TicketCreateModal(discord.ui.Modal):
         created_at_epoch = int(now_utc.timestamp() * 1000)
         year = now_utc.year
         event_year_key = f"{event_name};{year}"
+        tickets_channel = None
 
         claim_channel_id = await get_claim_channel_id(event_name, year)
         if (claim_channel_id is None):
-            await interaction.respons_send_message(
+            await interaction.response.send_message(
                 "Could not find cliam_channel_id",
                 ephemeral=True
             )
