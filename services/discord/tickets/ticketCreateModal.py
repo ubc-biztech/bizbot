@@ -14,6 +14,7 @@ from services.discord.constants.temp_discord_roles import (
 
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
+    get_claim_channel_id,
     get_ticket_id,
     member_has_any_role,
     resolve_member,
@@ -102,7 +103,8 @@ class ClaimTicketView(discord.ui.View):
             )
             return
 
-        ticket = update_response.get("Attributes", {})
+        # db.update_db() returns attributes directly, not a DynamoDB response envelope.
+        ticket = update_response
         created_by_raw = ticket.get("createdBy")
         if isinstance(created_by_raw, Decimal):
             created_by_id = int(created_by_raw)
@@ -184,11 +186,20 @@ class ClaimTicketView(discord.ui.View):
         except Exception as e:
             print(f"[ClaimTicket] Failed to save private channel ID: {e}")
 
-        mentions = [interaction.user.mention]
+        mentions: list[str] = []
+        seen_mentions: set[str] = set()
+
+        def append_unique_mention(mention: str | None) -> None:
+            if mention is None or mention in seen_mentions:
+                return
+            seen_mentions.add(mention)
+            mentions.append(mention)
+
+        append_unique_mention(interaction.user.mention)
         if created_by_member is not None:
-            mentions.append(created_by_member.mention)
+            append_unique_mention(created_by_member.mention)
         elif created_by_id is not None:
-            mentions.append(f"<@{created_by_id}>")
+            append_unique_mention(f"<@{created_by_id}>")
 
         await private_ticket_channel.send(
             " ".join(mentions) + "\nTicket claimed. Continue discussion here."
@@ -257,12 +268,17 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         created_at_epoch = int(now_utc.timestamp() * 1000)
-        event_year_key = f"{event_name};{now_utc.year}"
+        year = now_utc.year
+        event_year_key = f"{event_name};{year}"
 
-        tickets_channel = discord.utils.get(
-            category.text_channels, name="incoming-tickets"
-        )
+        claim_channel_id = await get_claim_channel_id(event_name, year)
+        if claim_channel_id is None:
+            await interaction.response.send_message(
+                "Could not find cliam_channel_id", ephemeral=True
+            )
+            return
 
+        tickets_channel = interaction.client.get_channel(claim_channel_id)
         if not isinstance(tickets_channel, discord.TextChannel):
             await interaction.response.send_message(
                 "Tickets channel is not configured correctly.", ephemeral=True

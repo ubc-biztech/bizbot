@@ -1,7 +1,30 @@
 import discord
 
-from lib.constants import COUNTER_KEY, TICKETS_TABLE
+from lib.constants import COUNTER_KEY, TICKET_EVENTS_TABLE, TICKETS_TABLE
 from lib.db import db
+
+
+async def get_claim_channel_id(eventID: str, year: int) -> int | None:
+    """Checks biztechTicketsEvents table for event's claim channelID"""
+    try:
+        event_item = await db.get_one_custom(
+            {
+                "TableName": TICKET_EVENTS_TABLE,
+                "Key": {
+                    "eventID": {"S": eventID},
+                    "eventID;year": {"S": f"{eventID};{year}"},
+                },
+            }
+        )
+
+        if event_item is not None:
+            return int(event_item["claimChannelID"]["N"])
+        else:
+            return None
+
+    except Exception as e:
+        print("DB Error", e)
+        return None
 
 
 def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
@@ -50,6 +73,36 @@ async def set_ticket_message_claimed(
 
     updated_embed.color = discord.Color.blue()
     status_text = f"CLAIMED by {claimer}"
+    status_updated = False
+
+    for idx, field in enumerate(updated_embed.fields):
+        if field.name == "Status":
+            updated_embed.set_field_at(
+                idx,
+                name="Status",
+                value=status_text,
+                inline=field.inline,
+            )
+            status_updated = True
+            break
+
+    if not status_updated:
+        updated_embed.add_field(name="Status", value=status_text, inline=False)
+
+    await message.edit(embed=updated_embed, view=None)
+
+
+async def set_ticket_message_closed(
+    message: discord.Message,
+    closer: str,
+) -> None:
+    """Set ticket embed status to closed and keep view disabled."""
+    if not message.embeds:
+        return
+    updated_embed = discord.Embed.from_dict(message.embeds[0].to_dict())
+
+    updated_embed.color = discord.Color.green()
+    status_text = f"CLOSED by {closer}"
     status_updated = False
 
     for idx, field in enumerate(updated_embed.fields):
