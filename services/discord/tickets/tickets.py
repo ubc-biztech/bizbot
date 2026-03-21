@@ -14,7 +14,10 @@ from discord.ext import commands
 
 from lib.constants import TICKETS_TABLE
 from lib.db import db
-from services.discord.constants.temp_discord_roles import PROD_GUILD_ID, PROD_TICKETS_CATEGORY_ID
+from services.discord.constants.temp_discord_roles import (
+    PROD_GUILD_ID,
+    PROD_TICKETS_CATEGORY_ID,
+)
 
 from .ticketCategoryView import TicketCategoryView
 from .ticketCloseConfirmView import TicketCloseConfirmView
