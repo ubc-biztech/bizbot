@@ -16,10 +16,11 @@ MENTOR_ROLE_TO_ID_DICTIONARY_PROD = {
     "UI/UX mentor": 1484786956511739925,
     "devops/setup mentor": 1484786308198039573,
     "other/exec": 1484787473589735514,
-    "Fetch AI":1440489800460402899,
+    "Fetch AI": 1440489800460402899,
 }
 
 PROD_GUILD_ID = 1404646266725732492
+
 
 def get_mentor_role_to_id_dictionary(guild_id: int | None) -> dict[str, int]:
     """
@@ -32,12 +33,12 @@ def get_mentor_role_to_id_dictionary(guild_id: int | None) -> dict[str, int]:
         return MENTOR_ROLE_TO_ID_DICTIONARY_PROD
     return MENTOR_ROLE_TO_ID_DICTIONARY_DEV
 
+
 EXEC_ROLE_IDS = [
     # Biztech
     1404646631688896604,  # BizTech Executive
     1440489800460402899,  # Fetch AI
     1484788119785046127,  # Mentor
-
     # Biztech Test server,
     1396397591465300098,  # Admin
     1423137037518770199,

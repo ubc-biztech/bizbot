@@ -46,9 +46,10 @@ class TicketCog(commands.Cog):
             )
             return
 
+        guild_id = interaction.guild.id if interaction.guild else None
         await interaction.response.send_message(
             "Select the type of help you need:",
-            view=TicketCategoryView(interaction.guild.id if interaction.guild else None),
+            view=TicketCategoryView(guild_id=guild_id),
             ephemeral=True,
         )
 
@@ -79,7 +80,8 @@ class TicketCog(commands.Cog):
 
         ticket_id = channel_match.group(1)
         category_name = category.name
-        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}"  # TODO CHANGE SORT KEY IN THE FUTURE
+        # TODO: CHANGE SORT KEY IN THE FUTURE
+        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}"
 
         # validate ticket_id and eventID;year against db
         try:
