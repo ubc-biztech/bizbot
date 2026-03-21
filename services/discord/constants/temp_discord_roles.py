@@ -20,6 +20,7 @@ MENTOR_ROLE_TO_ID_DICTIONARY_PROD = {
 }
 
 PROD_GUILD_ID = 1404646266725732492
+PROD_TICKETS_CATEGORY_ID = 1482961779494486171 # Produhacks 2026
 
 
 def get_mentor_role_to_id_dictionary(guild_id: int | None) -> dict[str, int]:

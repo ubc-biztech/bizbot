@@ -14,11 +14,23 @@ from discord.ext import commands
 
 from lib.constants import TICKETS_TABLE
 from lib.db import db
+from services.discord.constants.temp_discord_roles import (
+    PROD_GUILD_ID,
+    PROD_TICKETS_CATEGORY_ID,
+)
 
 from .ticketCategoryView import TicketCategoryView
 from .ticketCloseConfirmView import TicketCloseConfirmView
 
 type_deserializer = TypeDeserializer()
+
+
+def _in_allowed_ticket_category(
+    guild: discord.Guild | None, category: discord.CategoryChannel | None
+) -> bool:
+    if guild is None or guild.id != PROD_GUILD_ID:
+        return True
+    return category is not None and category.id == PROD_TICKETS_CATEGORY_ID
 
 
 class TicketCog(commands.Cog):
@@ -45,6 +57,12 @@ class TicketCog(commands.Cog):
                 "Please use `/ticket` inside an event category.", ephemeral=True
             )
             return
+        if not _in_allowed_ticket_category(interaction.guild, category):
+            await interaction.response.send_message(
+                "Please use `/ticket` in the designated tickets category.",
+                ephemeral=True,
+            )
+            return
 
         guild_id = interaction.guild.id if interaction.guild else None
         await interaction.response.send_message(
@@ -66,6 +84,11 @@ class TicketCog(commands.Cog):
 
         category = channel.category
         if category is None:
+            await interaction.response.send_message(
+                "You can't use `/close` in this channel.", ephemeral=True
+            )
+            return
+        if not _in_allowed_ticket_category(interaction.guild, category):
             await interaction.response.send_message(
                 "You can't use `/close` in this channel.", ephemeral=True
             )
