@@ -1,28 +1,31 @@
 import discord
 
-from lib.constants import COUNTER_KEY, TICKETS_TABLE, TICKET_EVENTS_TABLE
+from lib.constants import COUNTER_KEY, TICKET_EVENTS_TABLE, TICKETS_TABLE
 from lib.db import db
 
 
 async def get_claim_channel_id(eventID: str, year: int) -> int | None:
     """Checks biztechTicketsEvents table for event's claim channelID"""
     try:
-        event_item = await db.get_one_custom({
-            "TableName": TICKET_EVENTS_TABLE,
-            "Key": {
-                "eventID": {"S": eventID},
-                "eventID;year": {"S": f"{eventID};{year}"}
-                }
-        })
+        event_item = await db.get_one_custom(
+            {
+                "TableName": TICKET_EVENTS_TABLE,
+                "Key": {
+                    "eventID": {"S": eventID},
+                    "eventID;year": {"S": f"{eventID};{year}"},
+                },
+            }
+        )
 
-        if (event_item is not None):
+        if event_item is not None:
             return int(event_item["claimChannelID"]["N"])
         else:
-            return None;
-        
+            return None
+
     except Exception as e:
         print("DB Error", e)
         return None
+
 
 def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
     """Return True if member has at least one role from role_ids."""

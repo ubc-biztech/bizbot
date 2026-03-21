@@ -72,7 +72,7 @@ async def load_cogs():
     cogs_to_load = [
         "services.discord.health.health",
         "services.discord.tickets.tickets",
-        "services.discord.admin.admin"
+        "services.discord.admin.admin",
     ]
 
     for cog in cogs_to_load:

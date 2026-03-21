@@ -8,12 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-
-from lib.db import db
-
-from .adminEventHelpers import (
-        newEvent
-     )
+from .adminEventHelpers import newEvent
 
 
 class AdminCog(commands.Cog):
@@ -24,18 +19,18 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="admin-event-new", description="Create new event")
     async def new_event(
-            self,
-            interaction: discord.Interaction,
-            event_name: str, 
-            year: int,
-            role: discord.Role,
-            mentor_role: discord.Role,
-            submit_channel: discord.TextChannel,
-            claim_channel: discord.TextChannel
-            
+        self,
+        interaction: discord.Interaction,
+        event_name: str,
+        year: int,
+        role: discord.Role,
+        mentor_role: discord.Role,
+        submit_channel: discord.TextChannel,
+        claim_channel: discord.TextChannel,
     ):
         await interaction.response.send_message(
-                f"selected: {event_name}, role{role}, mentor{mentor_role}")
+            f"selected: {event_name}, role{role}, mentor{mentor_role}"
+        )
 
         await newEvent(
             event_name,
@@ -43,23 +38,18 @@ class AdminCog(commands.Cog):
             role,
             mentor_role,
             submit_channel,
-            claim_channel, 
-            interaction
+            claim_channel,
+            interaction,
         )
 
     @app_commands.command(name="admin-event-archive", description="Archive event")
     async def archive_event(
-            self,
-            interaction: discord.Interaction,
-            event_name: str, 
-            year: int,
-            
+        self,
+        interaction: discord.Interaction,
+        event_name: str,
+        year: int,
     ):
-        await interaction.response.send_message(
-                f"archived: {event_name}{year}")
-
-
-        
+        await interaction.response.send_message(f"archived: {event_name}{year}")
 
 
 async def setup(bot: commands.Bot):

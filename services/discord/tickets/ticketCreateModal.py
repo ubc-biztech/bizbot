@@ -14,11 +14,11 @@ from services.discord.constants.temp_discord_roles import (
 
 from .ticketClaimHelpers import (
     create_private_ticket_channel,
+    get_claim_channel_id,
     get_ticket_id,
     member_has_any_role,
     resolve_member,
     set_ticket_message_claimed,
-    get_claim_channel_id,
 )
 
 
@@ -263,15 +263,12 @@ class TicketCreateModal(discord.ui.Modal):
         tickets_channel = None
 
         claim_channel_id = await get_claim_channel_id(event_name, year)
-        if (claim_channel_id is None):
+        if claim_channel_id is None:
             await interaction.response.send_message(
-                "Could not find cliam_channel_id",
-                ephemeral=True
+                "Could not find cliam_channel_id", ephemeral=True
             )
         else:
             tickets_channel = interaction.client.get_channel(claim_channel_id)
-
-
 
         if not isinstance(tickets_channel, discord.TextChannel):
             await interaction.response.send_message(
