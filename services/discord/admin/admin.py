@@ -17,15 +17,10 @@ from .adminEventHelpers import (
 
 
 class AdminCog(commands.Cog):
-    """Testing commands for BizBot."""
+    """Admin commands for event configurations for bot"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    @app_commands.command(name="admin", description="Test bot responsiveness")
-    async def overview(self, interaction: discord.Interaction):
-        """Simple ping command to test if the bot is responding."""
-        await interaction.response.send_modal(ConfigCreateModal(None))
 
     @app_commands.command(name="admin-event-new", description="Create new event")
     async def new_event(
@@ -42,7 +37,15 @@ class AdminCog(commands.Cog):
         await interaction.response.send_message(
                 f"selected: {event_name}, role{role}, mentor{mentor_role}")
 
-        await newEvent(event_name, year, role, mentor_role, submit_channel, claim_channel)
+        await newEvent(
+            event_name,
+            year,
+            role,
+            mentor_role,
+            submit_channel,
+            claim_channel, 
+            interaction
+        )
 
     @app_commands.command(name="admin-event-archive", description="Archive event")
     async def archive_event(

@@ -10,24 +10,30 @@ async def newEvent(
         role: discord.Role,
         mentor_role: discord.Role,
         submit_channel: discord.TextChannel,
-        claim_channel: discord.TextChannel
+        claim_channel: discord.TextChannel,
+        interaction: discord.Interaction
     ):
 
     event_year_key = f"{event_name};{year}"
 
     event_item = {
-            "eventId;year": event_year_key,
-            "eventId": event_name,
-            "eventRoleId": role.id,
-            "mentorRoleId": role.id,
-            "submitChannelId": submit_channel.id,
-            "claimChannelId": claim_channel.id
+            "eventID;year": event_year_key,
+            "eventID": event_name,
+            "eventRoleID": role.id,
+            "mentorRoleID": mentor_role.id,
+            "submitChannelID": submit_channel.id,
+            "claimChannelID": claim_channel.id
         }
 
     try:
         await db.create(event_item, TICKET_EVENTS_TABLE)
-    except Exception:
-        print("Event couldn't be saved")
+    except Exception as e:
+        print("Event couldn't be saved", e)
+        await interaction.response.send_message(
+            "Event could not be saved into DB",
+            ephemeral=True
+        )
+        return;
 
     
 

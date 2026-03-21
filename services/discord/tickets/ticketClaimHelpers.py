@@ -4,20 +4,24 @@ from lib.constants import COUNTER_KEY, TICKETS_TABLE, TICKET_EVENTS_TABLE
 from lib.db import db
 
 
-async def get_claim_channel_id(eventId: str, year: int) -> int | None:
-    """Checks biztechTicketsEvents table for event's claim channelId"""
+async def get_claim_channel_id(eventID: str, year: int) -> int | None:
+    """Checks biztechTicketsEvents table for event's claim channelID"""
     try:
         event_item = await db.get_one_custom({
             "TableName": TICKET_EVENTS_TABLE,
             "Key": {
-                "eventId": {"S": eventId},
-                "eventId;year": {"S": f"{eventId};{year}"}
+                "eventID": {"S": eventID},
+                "eventID;year": {"S": f"{eventID};{year}"}
                 }
-        }) 
-        return int(event_item["claimChannelId"]["N"])
+        })
+
+        if (event_item != None):
+            return int(event_item["claimChannelID"]["N"])
+        else:
+            return None;
         
-    except Exception:
-        print("DB Error")
+    except Exception as e:
+        print("DB Error", e)
         return None
 
 def member_has_any_role(member: discord.Member, role_ids: set[int]) -> bool:
