@@ -48,7 +48,7 @@ class TicketCog(commands.Cog):
 
         await interaction.response.send_message(
             "Select the type of help you need:",
-            view=TicketCategoryView(),
+            view=TicketCategoryView(interaction.guild.id if interaction.guild else None),
             ephemeral=True,
         )
 

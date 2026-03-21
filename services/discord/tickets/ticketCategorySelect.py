@@ -1,15 +1,18 @@
 import discord
 
-from services.discord.constants.temp_discord_roles import MENTOR_ROLE_TO_ID_DICTIONARY
+from services.discord.constants.temp_discord_roles import (
+    get_mentor_role_to_id_dictionary,
+)
 
 from .ticketCreateModal import TicketCreateModal
 
 
 class TicketCategorySelect(discord.ui.Select):
-    def __init__(self):
+    def __init__(self, guild_id: int | None):
+        mentor_role_to_id_dictionary = get_mentor_role_to_id_dictionary(guild_id)
         options = [
             discord.SelectOption(label=category, value=category)
-            for category in MENTOR_ROLE_TO_ID_DICTIONARY.keys()
+            for category in mentor_role_to_id_dictionary.keys()
         ]
 
         super().__init__(

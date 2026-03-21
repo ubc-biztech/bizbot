@@ -9,7 +9,7 @@ from lib.db import db
 from services.discord.constants.temp_discord_roles import (
     CLAIM_ALLOWED_ROLE_IDS,
     EXEC_ROLE_IDS,
-    MENTOR_ROLE_TO_ID_DICTIONARY,
+    get_mentor_role_to_id_dictionary,
 )
 
 from .ticketClaimHelpers import (
@@ -296,7 +296,10 @@ class TicketCreateModal(discord.ui.Modal):
             ticket_id=str(ticket_id), event_year_key=event_year_key
         )
 
-        mentor_role_id = MENTOR_ROLE_TO_ID_DICTIONARY.get(self.selected_help_category)
+        mentor_role_to_id_dictionary = get_mentor_role_to_id_dictionary(
+            interaction.guild.id if interaction.guild else None
+        )
+        mentor_role_id = mentor_role_to_id_dictionary.get(self.selected_help_category)
         if mentor_role_id is None:
             await interaction.response.send_message(
                 "Selected help category is not configured.",

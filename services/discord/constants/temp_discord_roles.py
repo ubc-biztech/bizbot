@@ -1,6 +1,3 @@
-import os
-import subprocess
-
 MENTOR_ROLE_TO_ID_DICTIONARY_DEV = {
     "frontend": 1482999081302364161,
     "backend": 1482999306196750449,
@@ -22,38 +19,18 @@ MENTOR_ROLE_TO_ID_DICTIONARY_PROD = {
     "Fetch AI":1440489800460402899,
 }
 
+PROD_GUILD_ID = 1404646266725732492
 
-def _resolve_branch_name() -> str:
-    branch_from_env = (
-        os.getenv("GITHUB_REF_NAME")
-        or os.getenv("BRANCH_NAME")
-        or os.getenv("GIT_BRANCH")
-        or os.getenv("CI_COMMIT_REF_NAME")
-    )
-    if branch_from_env:
-        return branch_from_env.replace("refs/heads/", "")
+def get_mentor_role_to_id_dictionary(guild_id: int | None) -> dict[str, int]:
+    """
+    Resolve mentor role mapping based on the Discord server ID.
 
-    github_ref = os.getenv("GITHUB_REF")
-    if github_ref:
-        return github_ref.replace("refs/heads/", "")
-
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except Exception:
-        return ""
-
-
-MENTOR_ROLE_TO_ID_DICTIONARY = (
-    MENTOR_ROLE_TO_ID_DICTIONARY_PROD
-    if _resolve_branch_name().lower() == "main"
-    else MENTOR_ROLE_TO_ID_DICTIONARY_DEV
-)
+    - PROD guild ID uses PROD role IDs.
+    - Any other guild ID uses DEV role IDs.
+    """
+    if guild_id == PROD_GUILD_ID:
+        return MENTOR_ROLE_TO_ID_DICTIONARY_PROD
+    return MENTOR_ROLE_TO_ID_DICTIONARY_DEV
 
 EXEC_ROLE_IDS = [
     # Biztech
