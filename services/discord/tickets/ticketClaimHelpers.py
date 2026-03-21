@@ -69,6 +69,36 @@ async def set_ticket_message_claimed(
     await message.edit(embed=updated_embed, view=None)
 
 
+async def set_ticket_message_closed(
+    message: discord.Message,
+    closer: str,
+) -> None:
+    """Set ticket embed status to closed and keep view disabled."""
+    if not message.embeds:
+        return
+    updated_embed = discord.Embed.from_dict(message.embeds[0].to_dict())
+
+    updated_embed.color = discord.Color.green()
+    status_text = f"CLOSED by {closer}"
+    status_updated = False
+
+    for idx, field in enumerate(updated_embed.fields):
+        if field.name == "Status":
+            updated_embed.set_field_at(
+                idx,
+                name="Status",
+                value=status_text,
+                inline=field.inline,
+            )
+            status_updated = True
+            break
+
+    if not status_updated:
+        updated_embed.add_field(name="Status", value=status_text, inline=False)
+
+    await message.edit(embed=updated_embed, view=None)
+
+
 async def get_ticket_id(eventID, year) -> int:
     item = await db.update_db(
         key={"ticketID": COUNTER_KEY, "eventID;year": f"{eventID};{year}"},

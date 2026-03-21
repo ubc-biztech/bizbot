@@ -9,7 +9,7 @@ from lib.db import db
 from services.discord.constants.temp_discord_roles import (
     CLAIM_ALLOWED_ROLE_IDS,
     EXEC_ROLE_IDS,
-    MENTOR_ROLE_TO_ID_DICTIONARY,
+    get_mentor_role_to_id_dictionary,
 )
 
 from .ticketClaimHelpers import (
@@ -102,7 +102,8 @@ class ClaimTicketView(discord.ui.View):
             )
             return
 
-        ticket = update_response.get("Attributes", {})
+        # db.update_db() returns attributes directly, not a DynamoDB response envelope.
+        ticket = update_response
         created_by_raw = ticket.get("createdBy")
         if isinstance(created_by_raw, Decimal):
             created_by_id = int(created_by_raw)
@@ -184,11 +185,20 @@ class ClaimTicketView(discord.ui.View):
         except Exception as e:
             print(f"[ClaimTicket] Failed to save private channel ID: {e}")
 
-        mentions = [interaction.user.mention]
+        mentions: list[str] = []
+        seen_mentions: set[str] = set()
+
+        def append_unique_mention(mention: str | None) -> None:
+            if mention is None or mention in seen_mentions:
+                return
+            seen_mentions.add(mention)
+            mentions.append(mention)
+
+        append_unique_mention(interaction.user.mention)
         if created_by_member is not None:
-            mentions.append(created_by_member.mention)
+            append_unique_mention(created_by_member.mention)
         elif created_by_id is not None:
-            mentions.append(f"<@{created_by_id}>")
+            append_unique_mention(f"<@{created_by_id}>")
 
         await private_ticket_channel.send(
             " ".join(mentions) + "\nTicket claimed. Continue discussion here."
@@ -286,7 +296,10 @@ class TicketCreateModal(discord.ui.Modal):
             ticket_id=str(ticket_id), event_year_key=event_year_key
         )
 
-        mentor_role_id = MENTOR_ROLE_TO_ID_DICTIONARY.get(self.selected_help_category)
+        mentor_role_to_id_dictionary = get_mentor_role_to_id_dictionary(
+            interaction.guild.id if interaction.guild else None
+        )
+        mentor_role_id = mentor_role_to_id_dictionary.get(self.selected_help_category)
         if mentor_role_id is None:
             await interaction.response.send_message(
                 "Selected help category is not configured.",
