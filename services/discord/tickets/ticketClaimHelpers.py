@@ -15,7 +15,7 @@ async def get_claim_channel_id(eventID: str, year: int) -> int | None:
                 }
         })
 
-        if (event_item != None):
+        if (event_item is not None):
             return int(event_item["claimChannelID"]["N"])
         else:
             return None;

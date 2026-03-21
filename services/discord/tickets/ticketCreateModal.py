@@ -262,12 +262,13 @@ class TicketCreateModal(discord.ui.Modal):
         event_year_key = f"{event_name};{year}"
 
         claim_channel_id = await get_claim_channel_id(event_name, year)
-        if (claim_channel_id == None):
-            await interaction.response_send_message(
+        if (claim_channel_id is None):
+            await interaction.respons_send_message(
                 "Could not find cliam_channel_id",
                 ephemeral=True
             )
-        tickets_channel = interaction.client.get_channel(claim_channel_id)
+        else:
+            tickets_channel = interaction.client.get_channel(claim_channel_id)
 
 
 
