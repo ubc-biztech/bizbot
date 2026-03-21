@@ -5,9 +5,10 @@ Provides commands for ticket functionality
 """
 
 import re
+from datetime import datetime, timezone
 
 import discord
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.types import TypeDeserializer
 from discord import app_commands
 from discord.ext import commands
 
@@ -16,6 +17,8 @@ from lib.db import db
 
 from .ticketCategoryView import TicketCategoryView
 from .ticketCloseConfirmView import TicketCloseConfirmView
+
+type_deserializer = TypeDeserializer()
 
 
 class TicketCog(commands.Cog):
@@ -76,15 +79,18 @@ class TicketCog(commands.Cog):
 
         ticket_id = channel_match.group(1)
         category_name = category.name
+        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}" # TODO CHANGE SORT KEY IN THE FUTURE
 
         # validate ticket_id and eventID;year against db
         try:
-            table = db._get_table(TICKETS_TABLE)
-            query_response = table.query(
-                KeyConditionExpression=Key("ticketID").eq(ticket_id)
-                & Key("eventID;year").begins_with(f"{category_name};"),
-                Limit=1,
-                ScanIndexForward=False,
+            ticket_item = await db.get_one_custom(
+                params={
+                    "TableName": f"{TICKETS_TABLE}{db.environment}",
+                    "Key": {
+                        "ticketID": {"S": ticket_id},
+                        "eventID;year": {"S": event_year_key},
+                    },
+                }
             )
         except Exception as e:
             print(f"[TicketClose] Failed DB query: {e}")
@@ -94,15 +100,17 @@ class TicketCog(commands.Cog):
             )
             return
 
-        items = query_response.get("Items", [])
-        if not items:
+        if ticket_item is None:
             await interaction.response.send_message(
                 "You can't use `/close` in this channel.", ephemeral=True
             )
             return
 
-        ticket_item = items[0]
-        private_channel_id = int(ticket_item.get("privateChannelId"))
+        ticket_item = {
+            key: type_deserializer.deserialize(value) for key, value in ticket_item.items()
+        }
+
+        private_channel_id = int(ticket_item["privateChannelId"])
 
         if private_channel_id != channel.id:
             await interaction.response.send_message(
