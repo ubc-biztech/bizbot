@@ -97,3 +97,16 @@ async def list_configured_roles_in_guild(guild: discord.Guild) -> list[discord.R
             roles.append(role)
 
     return sorted(roles, key=lambda role: role.name.lower())
+
+
+async def cleanup_deleted_roles_from_config(guild: discord.Guild) -> None:
+    configured_role_ids = await list_configured_role_ids(guild.id)
+    existing_role_ids = {role.id for role in guild.roles}
+
+    stale_role_ids = [
+        role_id for role_id in configured_role_ids if role_id not in existing_role_ids
+    ]
+    if not stale_role_ids:
+        return
+
+    await remove_configured_roles(guild.id, stale_role_ids)

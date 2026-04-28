@@ -2,6 +2,7 @@ import discord
 
 from .discordRolesStore import (
     add_configured_roles,
+    cleanup_deleted_roles_from_config,
     get_discord_roles_table_name,
     list_configured_role_ids,
     list_configured_roles_in_guild,
@@ -14,7 +15,7 @@ class AdjustRolesRoleSelect(discord.ui.RoleSelect):
         super().__init__(
             placeholder="Select ticket-ping roles...",
             min_values=1,
-            max_values=25,
+            max_values=1000,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -69,10 +70,10 @@ class AdjustRolesView(discord.ui.View):
         await interaction.response.defer(ephemeral=True, thinking=True)
         existing_role_ids = set(await list_configured_role_ids(self.guild.id))
         final_role_count = len(existing_role_ids | self.selected_role_ids)
-        if final_role_count > 25:
+        if final_role_count > 1000:
             await interaction.followup.send(
                 (
-                    "Discord dropdowns only support 25 options. "
+                    "Discord dropdowns only support 1000 options. "
                     "Your selection would result in "
                     f"{final_role_count} configured roles."
                 ),
@@ -84,6 +85,8 @@ class AdjustRolesView(discord.ui.View):
             guild_id=self.guild.id,
             role_ids=self.selected_role_ids,
         )
+        await cleanup_deleted_roles_from_config(self.guild)
+
         await interaction.followup.send(
             f"Added {added_count} new role(s) to the DB.",
             ephemeral=True,
@@ -107,6 +110,7 @@ class AdjustRolesView(discord.ui.View):
             guild_id=self.guild.id,
             role_ids=self.selected_role_ids,
         )
+        await cleanup_deleted_roles_from_config(self.guild)
         await interaction.followup.send(
             f"Removed {removed_count} role(s) from the DB.",
             ephemeral=True,
@@ -119,4 +123,5 @@ class AdjustRolesView(discord.ui.View):
     ) -> None:
         _ = button
         await interaction.response.defer(ephemeral=True, thinking=False)
+        await cleanup_deleted_roles_from_config(self.guild)
         await self._send_current_roles(interaction)
