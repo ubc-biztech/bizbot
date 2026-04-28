@@ -1,18 +1,12 @@
 import discord
 
-from services.discord.constants.temp_discord_roles import (
-    get_mentor_role_to_id_dictionary,
-)
-
 from .ticketCreateModal import TicketCreateModal
 
 
 class TicketCategorySelect(discord.ui.Select):
-    def __init__(self, guild_id: int | None):
-        mentor_role_to_id_dictionary = get_mentor_role_to_id_dictionary(guild_id)
+    def __init__(self, roles: list[discord.Role]):
         options = [
-            discord.SelectOption(label=category, value=category)
-            for category in mentor_role_to_id_dictionary.keys()
+            discord.SelectOption(label=role.name, value=str(role.id)) for role in roles
         ]
 
         super().__init__(
@@ -23,8 +17,8 @@ class TicketCategorySelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        selected_help_category = self.values[0]
-        await interaction.response.send_modal(TicketCreateModal(selected_help_category))
+        selected_role_id = self.values[0]
+        await interaction.response.send_modal(TicketCreateModal(selected_role_id))
 
         try:
             await interaction.delete_original_response()
