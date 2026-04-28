@@ -47,11 +47,7 @@ class AdjustRolesView(discord.ui.View):
 
         table_name = get_discord_roles_table_name(self.guild.id)
         await interaction.followup.send(
-            (
-                f"Table: `{table_name}`\n"
-                "Current ticket-ping roles:\n"
-                f"{role_mentions}"
-            ),
+            (f"Table: `{table_name}`\nCurrent ticket-ping roles:\n{role_mentions}"),
             ephemeral=True,
         )
 

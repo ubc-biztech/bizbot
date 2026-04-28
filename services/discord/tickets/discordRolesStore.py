@@ -69,9 +69,7 @@ async def add_configured_roles(guild_id: int | None, role_ids: Iterable[int]) ->
     return added_count
 
 
-async def remove_configured_roles(
-    guild_id: int | None, role_ids: Iterable[int]
-) -> int:
+async def remove_configured_roles(guild_id: int | None, role_ids: Iterable[int]) -> int:
     table_name = get_discord_roles_table_name(guild_id)
     table = db.dynamodb.Table(table_name)  # type: ignore[attr-defined]
 
