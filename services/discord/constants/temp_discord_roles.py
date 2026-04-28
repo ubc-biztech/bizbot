@@ -38,13 +38,14 @@ def get_mentor_role_to_id_dictionary(guild_id: int | None) -> dict[str, int]:
 EXEC_ROLE_IDS = [
     # Biztech
     1404646631688896604,  # BizTech Executive
-    1440489800460402899,  # Fetch AI
-    1484788119785046127,  # Mentor
     # Biztech Test server,
     1396397591465300098,  # Admin
     1423137037518770199,
 ]
 
-MENTOR_ROLE_IDS = []
+MENTOR_ROLE_IDS = [
+    1484788119785046127, # Mentor
+    1440489800460402899,  # Fetch AI
+]
 
 CLAIM_ALLOWED_ROLE_IDS = {*EXEC_ROLE_IDS, *MENTOR_ROLE_IDS}
