@@ -15,7 +15,7 @@ class AdjustRolesRoleSelect(discord.ui.RoleSelect):
         super().__init__(
             placeholder="Select ticket-ping roles...",
             min_values=1,
-            max_values=1000,
+            max_values=25,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -70,10 +70,10 @@ class AdjustRolesView(discord.ui.View):
         await interaction.response.defer(ephemeral=True, thinking=True)
         existing_role_ids = set(await list_configured_role_ids(self.guild.id))
         final_role_count = len(existing_role_ids | self.selected_role_ids)
-        if final_role_count > 1000:
+        if final_role_count > 25:
             await interaction.followup.send(
                 (
-                    "Discord dropdowns only support 1000 options. "
+                    "Discord dropdowns only support 25 options. "
                     "Your selection would result in "
                     f"{final_role_count} configured roles."
                 ),
