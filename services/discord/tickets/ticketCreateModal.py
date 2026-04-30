@@ -9,7 +9,6 @@ from lib.db import db
 from services.discord.constants.temp_discord_roles import (
     CLAIM_ALLOWED_ROLE_IDS,
     EXEC_ROLE_IDS,
-    get_mentor_role_to_id_dictionary,
 )
 
 from .ticketClaimHelpers import (
@@ -228,10 +227,10 @@ class TicketCreateModal(discord.ui.Modal):
         placeholder="Henry Angus 491 / etc.",
     )
 
-    def __init__(self, selected_help_category: str):
+    def __init__(self, selected_role_id: str):
         super().__init__(title="Create Ticket")
-        # Pass data from category dropdown
-        self.selected_help_category = selected_help_category
+        # Pass selected ping role from dropdown
+        self.selected_role_id = selected_role_id
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         channel = interaction.channel
@@ -258,7 +257,7 @@ class TicketCreateModal(discord.ui.Modal):
         now_utc = datetime.now(timezone.utc)
         ticket_id = 0
         try:
-            ticket_id = await get_ticket_id(event_name, now_utc.year)
+            ticket_id = await get_ticket_id(event_name)
         except Exception as e:
             print(e)
             await interaction.response.send_message(
@@ -267,7 +266,7 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         created_at_epoch = int(now_utc.timestamp() * 1000)
-        event_year_key = f"{event_name};{now_utc.year}"
+        event_year_key = f"{event_name}"
 
         tickets_channel = discord.utils.get(
             category.text_channels, name="incoming-tickets"
@@ -279,13 +278,32 @@ class TicketCreateModal(discord.ui.Modal):
             )
             return
 
+        guild = interaction.guild
+        mentor_role_id: int | None = None
+        try:
+            mentor_role_id = int(self.selected_role_id)
+        except ValueError:
+            mentor_role_id = None
+
+        mentor_role = (
+            guild.get_role(mentor_role_id)
+            if guild is not None and mentor_role_id is not None
+            else None
+        )
+        if mentor_role is None:
+            await interaction.response.send_message(
+                "Selected role is no longer available. Please retry `/ticket`.",
+                ephemeral=True,
+            )
+            return
+
+        help_category_label = mentor_role.name
+
         # Queue message into mentor chat
         ticket_title = f"Ticket #{ticket_id}"
         embed = discord.Embed(title=ticket_title, color=discord.Color.red())
         embed.add_field(name="Created By", value=interaction.user.mention, inline=True)
-        embed.add_field(
-            name="Help Category", value=self.selected_help_category, inline=True
-        )
+        embed.add_field(name="Help Category", value=help_category_label, inline=True)
         embed.add_field(
             name="Where are you located", value=self.location.value, inline=False
         )
@@ -295,17 +313,6 @@ class TicketCreateModal(discord.ui.Modal):
         claim_view = ClaimTicketView(
             ticket_id=str(ticket_id), event_year_key=event_year_key
         )
-
-        mentor_role_to_id_dictionary = get_mentor_role_to_id_dictionary(
-            interaction.guild.id if interaction.guild else None
-        )
-        mentor_role_id = mentor_role_to_id_dictionary.get(self.selected_help_category)
-        if mentor_role_id is None:
-            await interaction.response.send_message(
-                "Selected help category is not configured.",
-                ephemeral=True,
-            )
-            return
 
         mentor_ping = f"<@&{mentor_role_id}>"
         try:
@@ -327,7 +334,8 @@ class TicketCreateModal(discord.ui.Modal):
             "eventId": event_id,
             "eventName": event_name,
             "createdBy": interaction.user.id,
-            "helpCategory": self.selected_help_category,
+            "helpCategory": help_category_label,
+            "pingRoleId": mentor_role_id,
             "description": self.description.value,
             "location": self.location.value,
             "status": "OPEN",
