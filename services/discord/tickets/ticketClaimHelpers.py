@@ -99,9 +99,9 @@ async def set_ticket_message_closed(
     await message.edit(embed=updated_embed, view=None)
 
 
-async def get_ticket_id(eventID, year) -> int:
+async def get_ticket_id(eventID) -> int:
     item = await db.update_db(
-        key={"ticketID": COUNTER_KEY, "eventID;year": f"{eventID};{year}"},
+        key={"ticketID": COUNTER_KEY, "eventID;year": f"{eventID}"},
         table=TICKETS_TABLE,
         update_expression=("ADD #counter :inc"),
         expression_attribute_names={"#counter": "counter"},

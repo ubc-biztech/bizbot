@@ -257,7 +257,7 @@ class TicketCreateModal(discord.ui.Modal):
         now_utc = datetime.now(timezone.utc)
         ticket_id = 0
         try:
-            ticket_id = await get_ticket_id(event_name, now_utc.year)
+            ticket_id = await get_ticket_id(event_name)
         except Exception as e:
             print(e)
             await interaction.response.send_message(
@@ -266,7 +266,7 @@ class TicketCreateModal(discord.ui.Modal):
             return
 
         created_at_epoch = int(now_utc.timestamp() * 1000)
-        event_year_key = f"{event_name};{now_utc.year}"
+        event_year_key = f"{event_name}"
 
         tickets_channel = discord.utils.get(
             category.text_channels, name="incoming-tickets"
