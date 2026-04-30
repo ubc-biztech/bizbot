@@ -5,7 +5,6 @@ Provides commands for ticket functionality
 """
 
 import re
-from datetime import datetime, timezone
 
 import discord
 from boto3.dynamodb.types import TypeDeserializer
@@ -372,8 +371,7 @@ class TicketCog(commands.Cog):
 
         ticket_id = channel_match.group(1)
         category_name = category.name
-        # TODO: CHANGE SORT KEY IN THE FUTURE
-        event_year_key = f"{category_name};{datetime.now(timezone.utc).year}"
+        event_year_key = f"{category_name}"
 
         # validate ticket_id and eventID;year against db
         try:
