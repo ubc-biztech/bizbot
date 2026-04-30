@@ -50,7 +50,7 @@ async def stop_event(guild_id: int | None, category_id: int) -> bool:
 
 
 def resolve_category_from_channel(
-    channel: discord.abc.GuildChannel | discord.Thread | None,
+    channel: object | None,
 ) -> discord.CategoryChannel | None:
     if isinstance(channel, discord.TextChannel):
         return channel.category
