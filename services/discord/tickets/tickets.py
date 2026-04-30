@@ -47,6 +47,23 @@ class TicketCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @app_commands.command(name="help", description="Show BizBot ticket command help")
+    async def help(self, interaction: discord.Interaction):
+        help_text = (
+            "**BizBot Ticket Commands**\n"
+            "`/createevent` - Set up this category for ticketing. "
+            "Creates missing channels: ticket-help, "
+            "ticket-log, incoming-tickets. "
+            "(Exec roles only)\n"
+            "`/stopevent` - Stop new `/ticket` creation in this category. "
+            "Existing tickets can still be claimed and closed. (Exec roles only)\n"
+            "`/adjustroles` - Add/remove roles that can be pinged for help in tickets. "
+            "Roles must already exist in this Discord server. (Exec roles only)\n"
+            "`/ticket` - Create a new help ticket.\n"
+            "`/close` - Close the current ticket. Use in a private ticket channel."
+        )
+        await interaction.response.send_message(help_text, ephemeral=True)
+
     @app_commands.command(name="ticket", description="Create a help ticket")
     async def ticket(self, interaction: discord.Interaction):
         """/ticket command to create a ticket"""
