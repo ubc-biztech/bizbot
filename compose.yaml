@@ -1,0 +1,13 @@
+services:
+  bizbot:
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"

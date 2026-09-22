@@ -5,6 +5,20 @@ on:
     branches: [main, dev]
 
 jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build container
+        run: docker build -t bizbot:test .
+      - name: Import application without external services
+        run: |
+          docker run --rm --network none \
+            -e AWS_ACCESS_KEY_ID=test-key \
+            -e AWS_SECRET_ACCESS_KEY=test-secret \
+            -e AWS_EC2_METADATA_DISABLED=true \
+            bizbot:test python -c "import main; from services.discord.tickets import tickets"
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
