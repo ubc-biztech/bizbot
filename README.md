@@ -1,339 +1,137 @@
-## BizBot
-is an internal Discord bot built to streamline attendee support at BizTech events. It provides a structured mentorship ticketing system directly within Discord — allowing attendees to request help, mentors to self-assign based on their expertise, and executives to maintain full visibility over support activity in real time.
+# BizBot
 
-## Functionality
-- **Verification** — attendees and partners authenticate via `/verify` using their registered email, which is checked against the member database and assigned the appropriate Discord role automatically
-- **Ticket creation** — members submit help requests through a guided modal flow, specifying a category and problem description, which are posted to a managed queue channel
-- **Mentor assignment** — mentors subscribe to skill categories and are pinged on relevant tickets; claiming a ticket is atomic to prevent race conditions, and opens a private channel between the attendee, mentor, and exec team
-- **Ticket lifecycle** — tickets move through `OPEN → CLAIMED → CLOSED` states, with a full audit log posted to a dedicated exec-visible log channel
+BizTech's Discord mentorship ticket bot, built with Python 3.13, discord.py,
+FastAPI, DynamoDB, and uv. Docker runs the bot and HTTP API in one process.
 
-**Stack:**
-- **Bot** — Python with `discord.py`, managed by PM2 on an AWS Lightsail VPS
-- **Dependency management** — `uv`
-- **Database** — AWS DynamoDB
-- **Resource Access** — IAM
-- **CI/CD** — GitHub Actions
+## Run with Docker
 
-## Deployment Deployment Guide
-
----
-
-## Prerequisites
-
-- AWS Lightsail VPS running Ubuntu/Debian
-- IAM role attached to the Lightsail instance with DynamoDB permissions
-- Discord bot token from Discord Developer Portal
-- DynamoDB table created in AWS
-
----
-
-## 1. Initial VPS Setup
-
-SSH into your Lightsail instance:
+Install [Docker Engine and the Compose plugin](https://docs.docker.com/engine/install/ubuntu/).
+For a fresh Lightsail host, Ubuntu 24.04 with 2 GB RAM is a reasonable starting
+point; check `docker stats` under event load before choosing a smaller instance.
 
 ```bash
-ssh ubuntu@your-lightsail-ip
-```
-
-### Install System Dependencies
-
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Install Python 3.13 (if not available, use 3.11+)
-sudo apt install -y python3.13 python3.13-venv python3-pip
-
-# Install Node.js and npm (for PM2)
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Install nginx (reverse proxy)
-sudo apt install -y nginx
-
-# Install uv (Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.cargo/env
-
-# Install PM2 globally
-sudo npm install -g pm2
-```
-
----
-
-## 2. Clone and Configure the Repository
-
-```bash
-# Create deployment directory
-sudo mkdir -p /opt/bizbot
-sudo chown $USER:$USER /opt/bizbot
-
-# Clone repository
-cd /opt/bizbot
-git clone https://github.com/your-org/bizbot.git .
-
-# Create environment file from template
+git clone https://github.com/ubc-biztech/bizbot.git
+cd bizbot
 cp .env.example .env
-nano .env
+chmod 600 .env
+# Fill in .env before starting.
+docker compose up -d --build --wait --wait-timeout 180
+docker compose logs --tail=100 -f
 ```
 
-Fill in your actual values in `.env`:
+The image installs the committed `uv.lock`, runs as a non-root user, and excludes
+local secrets and virtual environments from the build context. Credentials are
+injected at runtime from `.env`. No host Python, uv, Node.js, or PM2 is required.
+Docker must start on boot (`sudo systemctl enable --now docker` on Ubuntu).
+Compose restarts the process unless explicitly stopped and rotates its logs.
+
+### Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DISCORD_TOKEN` | Bot token from the Discord Developer Portal. |
+| `DISCORD_GUILD_ID` | Server ID for immediate guild command synchronization; omit for global sync. |
+| `AWS_REGION` | DynamoDB region, normally `us-west-2`. |
+| `ENVIRONMENT` | Ticket table suffix: `PROD` selects `biztechTicketsPROD`; empty selects `biztechTickets`. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Dedicated bot credentials for Lightsail. Never use root credentials. |
+| `AWS_SESSION_TOKEN` | Also required when using temporary AWS credentials. Refresh before expiry and recreate the container. |
+
+Lightsail does not provide an attachable EC2 instance profile for application
+credentials. Use a dedicated IAM principal restricted to the required tables.
+On EC2, an instance profile is an alternative, provided the container can reach
+IMDS. Do not bake credentials into the image or commit `.env`.
+
+### DynamoDB
+
+The current ticket commands require these existing tables; the bot does not
+create them:
+
+| Table | String partition key | String sort key |
+| --- | --- | --- |
+| `biztechTickets` or `biztechTicketsPROD` | `ticketID` | `eventID;year` |
+| `discordEvents` or `discordEventsPROD` | `categoryID` | — |
+| `discordRoles` or `discordRolesPROD` | `roleId` | — |
+
+Ticket tables use `ENVIRONMENT`. Event and role tables independently use the
+hardcoded `PROD_GUILD_ID` in
+`services/discord/constants/temp_discord_roles.py`: that guild uses the `PROD`
+tables; other guilds use the unsuffixed tables. Confirm both settings before
+starting a production bot. `DYNAMODB_TABLE_NAME` is not read by the application.
+
+For production ticketing, scope IAM permissions to the three production table
+ARNs in the target account and region. The current commands use
+`dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:UpdateItem`,
+`dynamodb:DeleteItem`, and `dynamodb:Scan`.
+
+### Discord event setup
+
+1. Enable **Server Members Intent** and **Message Content Intent** in the
+   [Discord Developer Portal](https://discord.com/developers/applications).
+2. Invite the bot with `bot` and `applications.commands` scopes. Give it the
+   permissions needed to view/send messages, embed links, read message history,
+   manage channels, and manage channel permission overwrites.
+3. Verify the guild, executive, and mentor IDs in
+   `services/discord/constants/temp_discord_roles.py`. Setting
+   `DISCORD_GUILD_ID` only controls command sync; it does not replace those IDs.
+4. With an executive role, run `/createevent` in a text channel under the event
+   category. It enables ticketing and creates missing `ticket-help`,
+   `ticket-log`, and `incoming-tickets` channels. Review their permissions;
+   newly created channels inherit the category's permissions.
+5. Run `/adjustroles` to configure ticket-ping roles, then test `/ticket`, claim,
+   and `/close`. Run `/stopevent` to stop new tickets when the event ends.
+
+## Health, networking, and operations
 
 ```bash
-DISCORD_TOKEN=your_actual_discord_bot_token
-DISCORD_GUILD_ID=your_guild_id
-DYNAMODB_TABLE_NAME=bizbot-tickets
-AWS_REGION=us-east-1
+curl --fail http://127.0.0.1:8000/health
+docker compose ps
+docker stats --no-stream
+docker compose logs --tail=100
+docker compose down
 ```
 
-### Verify IAM Role Permissions
+A healthy container requires `/health` to report `bot_connected: true`, not just
+HTTP 200. This checks Discord connectivity, not DynamoDB permissions or correct
+roles/channels; verify a complete ticket flow separately. Docker marks failed
+probes unhealthy but only restarts an exited process automatically.
 
-The Lightsail instance must have an IAM role with DynamoDB access. Test with:
+The API binds to host loopback because it includes an unauthenticated database
+test route. Keep port 8000 private. Discord uses outbound connections; it needs
+no public HTTP endpoint, nginx, TLS certificate, or inbound Discord port. For a
+remote health check, use an SSH tunnel:
 
 ```bash
-aws dynamodb list-tables --region us-east-1
+ssh -L 8000:127.0.0.1:8000 ubuntu@your-vps-ip
 ```
 
-If this fails, attach an IAM role via the Lightsail console with these permissions:
+Restrict the host's inbound SSH rule to trusted administrator addresses.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan"
-      ],
-      "Resource": "arn:aws:dynamodb:*:*:table/bizbot-*"
-    }
-  ]
-}
-```
-
----
-
-## 3. Install Dependencies and Test
+## Deployment updates
 
 ```bash
-# Install Python dependencies using uv
-uv sync
+git pull --ff-only origin main
+docker compose up -d --build --wait --wait-timeout 180
+```
 
-# Test the bot locally (optional)
+The existing GitHub Actions SSH deployment now runs this Compose command from
+`/opt/bizbot`. Before merging onto `main`, provision that checkout, install Docker
+and Compose, create its `.env`, and allow the deployment user to run Docker.
+Refresh `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`, and `LIGHTSAIL_SSH_KEY` repository
+secrets for the replacement host. Ensure the host can pull the repository.
+
+If migrating a surviving PM2 installation, stop and remove its `bizbot` process
+and run `pm2 save` before starting Compose. Run only one bot instance per token.
+The old PM2 files remain for reference. Ticket data stays in DynamoDB; no local
+data volume is required.
+
+## Local development
+
+```bash
+uv sync --locked
 uv run python main.py
-# Press Ctrl+C to stop after verifying startup
+uv run ruff check .
+uv run pyright
 ```
 
----
-
-## 4. Configure PM2
-
-Update the deployment path in `ecosystem.config.js`:
-
-```bash
-nano ecosystem.config.js
-# Change 'cwd' to: /opt/bizbot
-```
-
-Create logs directory:
-
-```bash
-mkdir -p logs
-```
-
-Start the bot with PM2:
-
-```bash
-pm2 start ecosystem.config.js
-pm2 logs bizbot  # View logs
-```
-
-### Enable Auto-Start on Boot
-
-```bash
-pm2 startup
-# Follow the instructions output by this command
-pm2 save
-```
-
-### PM2 Management Commands
-
-```bash
-pm2 status              # Check bot status
-pm2 logs bizbot         # View logs
-pm2 restart bizbot      # Restart bot
-pm2 stop bizbot         # Stop bot
-pm2 delete bizbot       # Remove from PM2
-```
-
----
-
-## 5. Configure nginx (Reverse Proxy)
-
-Create nginx configuration for the FastAPI endpoints:
-
-```bash
-sudo nano /etc/nginx/sites-available/bizbot
-```
-
-Add the following configuration:
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;  # Or use IP address
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Enable the site:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/bizbot /etc/nginx/sites-enabled/
-sudo nginx -t  # Test configuration
-sudo systemctl restart nginx
-```
-
-Test the API:
-
-```bash
-curl http://localhost/health
-# Should return: {"status":"ok",...}
-```
-
----
-
-## 6. Set Up SSL (Optional but Recommended)
-
-If using a domain, enable HTTPS with Let's Encrypt:
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
-```
-
----
-
-## 7. Deploying Updates
-
-When pushing new code:
-
-```bash
-cd /opt/bizbot
-git pull origin main
-uv sync  # Update dependencies if needed
-pm2 restart bizbot
-```
-
-For zero-downtime deployments, consider using PM2's reload:
-
-```bash
-pm2 reload bizbot
-```
-
----
-
-## 8. Monitoring and Logs
-
-View real-time logs:
-
-```bash
-pm2 logs bizbot --lines 100
-```
-
-Monitor resource usage:
-
-```bash
-pm2 monit
-```
-
-Check nginx logs:
-
-```bash
-sudo tail -f /var/log/nginx/access.log
-sudo tail -f /var/log/nginx/error.log
-```
-
----
-
-## 9. Troubleshooting
-
-### Bot won't start
-
-Check PM2 logs:
-
-```bash
-pm2 logs bizbot --err --lines 50
-```
-
-Common issues:
-- Invalid `DISCORD_TOKEN` in `.env`
-- Missing IAM permissions for DynamoDB
-- Port 8000 already in use (check with `sudo lsof -i :8000`)
-
-### DynamoDB connection errors
-
-Verify IAM role:
-
-```bash
-aws sts get-caller-identity
-aws dynamodb describe-table --table-name bizbot-tickets --region us-east-1
-```
-
-### Bot not responding to commands
-
-- Check if bot is online in Discord
-- Verify slash commands are synced (check startup logs)
-- Ensure bot has proper permissions in your Discord server
-
----
-
-## 10. Security Best Practices
-
-- Never commit `.env` to git
-- Restrict SSH access (use key-based auth only)
-- Keep system packages updated: `sudo apt update && sudo apt upgrade`
-- Use firewall rules to restrict access to ports 22, 80, 443 only
-- Regularly rotate Discord tokens
-- Review IAM permissions (principle of least privilege)
-
----
-
-## Architecture Overview
-
-```
-User → Discord → BizBot (discord.py)
-                    ↓
-                DynamoDB
-
-Admin/Monitoring → nginx → FastAPI (port 8000)
-                              ↓
-                         BizBot status
-```
-
-Both discord.py and FastAPI run in a single Python process managed by PM2, sharing the same asyncio event loop.
-
----
-
-## Support
-
-For issues or questions:
-- Check PM2 logs: `pm2 logs bizbot`
-- Review this deployment guide
-- Check the main README.md for architecture details
+PR CI also builds the Docker image and checks application imports without
+Discord or AWS access.

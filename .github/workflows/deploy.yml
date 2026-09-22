@@ -37,6 +37,5 @@ jobs:
           debug: true
           script: |
             cd /opt/bizbot
-            git pull origin main
-            uv sync --frozen
-            pm2 restart bizbot
+            git pull --ff-only origin main
+            docker compose up -d --build --wait --wait-timeout 180
