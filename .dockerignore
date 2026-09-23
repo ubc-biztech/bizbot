@@ -1,0 +1,16 @@
+# Allow only build inputs; credentials and local files never enter the context.
+**
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!main.py
+!lib/
+!lib/**
+!services/
+!services/**
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

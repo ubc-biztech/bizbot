@@ -1,0 +1,16 @@
+name: Docker build
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image without runtime credentials
+        run: docker build -t bizbot:ci .
